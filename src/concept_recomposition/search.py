@@ -84,7 +84,6 @@ class SearchRunner:
     def _expanded_key(self, expression: Expression) -> str:
         return expression.expanded(self.archive.expressions).key
 
-
     def _promote(
         self,
         candidates: list[tuple[Expression, float, float]],
@@ -101,10 +100,11 @@ class SearchRunner:
                     break
                 if expression.size <= 1:
                     continue
+                expanded_size = expression.expanded(self.archive.expressions).size
                 concept = self.archive.add(expression, validation, generation)
                 if concept is None:
                     continue
-                promoted_sizes.append(expression.size)
+                promoted_sizes.append(expanded_size)
                 if self.arm == "process":
                     for op, count in operator_counts(expression).items():
                         self.op_weights[op] += count * max(validation, 0.05)
@@ -116,32 +116,34 @@ class SearchRunner:
         if not targets:
             return ()
         for target_size in targets:
-            choices: list[tuple[Expression, float]] = []
-            for _ in range(24):
-                expression = random_expression(
-                    self.rng,
-                    tuple(self.world.data),
-                    (),
-                    max(2, target_size),
-                )
+            concept = None
+            for _ in range(8):
+                best: Expression | None = None
+                best_distance = target_size
+                for _ in range(64):
+                    expression = random_expression(
+                        self.rng,
+                        tuple(self.world.data),
+                        (),
+                        max(2, target_size),
+                    )
+                    if expression.size <= 1:
+                        continue
+                    distance = abs(expression.size - target_size)
+                    if best is None or distance < best_distance:
+                        best = expression
+                        best_distance = distance
+                    if distance == 0:
+                        break
+                if best is None:
+                    continue
                 validation, _ = score_expression(
-                    expression, self.world, {}, split=self.split
+                    best, self.world, {}, split=self.split
                 )
-                if expression.size > 1:
-                    choices.append((expression, validation))
-            if not choices:
-                continue
-            expression, validation = min(
-                choices,
-                key=lambda item: (
-                    item[1] >= self.promotion_threshold,
-                    abs(item[0].size - target_size),
-                    item[1],
-                ),
-            )
-            concept = self.archive.add(expression, validation, generation)
-            if concept is not None:
-                promoted_sizes.append(expression.size)
+                concept = self.archive.add(best, validation, generation)
+                if concept is not None:
+                    promoted_sizes.append(best.size)
+                    break
         return tuple(promoted_sizes)
 
     def run(self) -> SearchResult:
