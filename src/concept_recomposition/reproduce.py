@@ -15,7 +15,7 @@ def main() -> None:
     parser.add_argument("--market", action="store_true")
     args = parser.parse_args()
 
-    rows, lineage = run_sweep(30)
+    rows, lineage = run_sweep(50)
     write_csv(rows, Path("results/summary.csv"))
     Path("results/lineage.json").write_text(
         json.dumps(lineage, indent=2) + "\n",

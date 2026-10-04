@@ -80,7 +80,8 @@ def world_check() -> None:
     ax.set_xticks(x, worlds)
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("target reach rate")
-    ax.set_title("500 proposals, 30 seeds")
+    seeds = next(row["seeds"] for row in full)
+    ax.set_title(f"500 proposals, {seeds} seeds")
     ax.legend(frameon=False, ncol=4)
     fig.tight_layout()
     FIGURES.mkdir(exist_ok=True)
@@ -133,10 +134,45 @@ def lineage() -> None:
     plt.close(fig)
 
 
+
+def process_comparison() -> None:
+    rows = _rows()
+    worlds = {"deep", "reuse", "context"}
+    budgets = sorted({int(row["budget"]) for row in rows})
+    fig, ax = plt.subplots(figsize=(7.2, 4.2))
+    for arm in ("reify", "process"):
+        values = []
+        for budget in budgets:
+            cells = [
+                float(row["reach_rate"])
+                for row in rows
+                if row["arm"] == arm
+                and row["world"] in worlds
+                and int(row["budget"]) == budget
+            ]
+            values.append(float(np.mean(cells)))
+        ax.plot(
+            budgets,
+            values,
+            marker="o",
+            label=arm.upper(),
+            color=COLORS[arm],
+        )
+    ax.set_xlabel("proposal budget")
+    ax.set_ylabel("target reach rate")
+    ax.set_ylim(-0.01, 0.35)
+    ax.set_title("Learning proposal weights gives a modest lift")
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    FIGURES.mkdir(exist_ok=True)
+    fig.savefig(FIGURES / "process.svg")
+    plt.close(fig)
+
 def render_all() -> None:
     reachability()
     world_check()
     lineage()
+    process_comparison()
 
 
 if __name__ == "__main__":

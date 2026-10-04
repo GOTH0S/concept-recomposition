@@ -125,7 +125,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run the concept recomposition benchmark"
     )
-    parser.add_argument("--seeds", type=int, default=30)
+    parser.add_argument("--seeds", type=int, default=50)
     parser.add_argument(
         "--out",
         type=Path,
