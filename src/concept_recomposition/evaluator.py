@@ -38,6 +38,47 @@ def _best_corr(values: np.ndarray, outcomes: tuple[np.ndarray, ...]) -> float:
     return max(_corr(values, target) for target in outcomes)
 
 
+def affine_equivalent(
+    left: np.ndarray,
+    right: np.ndarray,
+    *,
+    tolerance: float = 1e-8,
+) -> bool:
+    mask = np.isfinite(left) & np.isfinite(right)
+    if mask.sum() < 20:
+        return False
+    x = left[mask]
+    y = right[mask]
+    x_centered = x - x.mean()
+    scale = float(np.dot(x_centered, x_centered))
+    if scale < 1e-12:
+        return False
+    slope = float(np.dot(x_centered, y - y.mean()) / scale)
+    if abs(slope) < 1e-12:
+        return False
+    fitted = y.mean() + slope * x_centered
+    residual = np.sqrt(np.mean(np.square(y - fitted)))
+    denominator = max(float(np.std(y)), 1e-12)
+    return residual / denominator <= tolerance
+
+
+def target_matches(
+    expression: Expression,
+    world: World,
+    concepts: dict[str, Expression],
+    cache: dict[str, np.ndarray] | None = None,
+) -> tuple[str, ...]:
+    if not world.targets:
+        return ()
+    values = evaluate(expression, world.data, concepts, cache)
+    matches = []
+    for target in world.targets:
+        target_values = evaluate(target, world.data, {}, cache)
+        if affine_equivalent(values, target_values):
+            matches.append(target.key)
+    return tuple(matches)
+
+
 def score_expression(
     expression: Expression,
     world: World,
