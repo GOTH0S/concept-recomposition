@@ -6,9 +6,10 @@ from typing import Literal
 import numpy as np
 
 from .archive import ConceptArchive
-from .evaluator import EvidenceScore, score_expression
+from .evaluator import EvidenceScore, affine_equivalent, score_expression
 from .expression import Expression
 from .grammar import OPS, concept_pool, operator_counts, proposal_pool, sample_pool
+from .operators import evaluate
 from .worlds import World
 
 Arm = Literal["reset", "reify", "process", "sham"]
@@ -131,6 +132,23 @@ class SearchRunner:
             )
         )
 
+    def _novel(self, expanded: Expression) -> bool:
+        values = evaluate(expanded, self.world.data, {}, self.eval_cache)[: self.heldout_start]
+        for raw in self.world.data.values():
+            if affine_equivalent(values, raw[: self.heldout_start]):
+                return False
+        for expression in self.archive.expressions.values():
+            known = expression.expanded(self.archive.expressions)
+            known_values = evaluate(
+                known,
+                self.world.data,
+                {},
+                self.eval_cache,
+            )[: self.heldout_start]
+            if affine_equivalent(values, known_values):
+                return False
+        return True
+
     def _promote_scored(
         self,
         candidates: list[tuple[Expression, Expression, EvidenceScore]],
@@ -145,6 +163,8 @@ class SearchRunner:
         for expression, expanded, score in ranked:
             if score.promotion < self.promotion_threshold:
                 break
+            if not self._novel(expanded):
+                continue
             concept = self.archive.add(
                 expression,
                 expanded,
@@ -187,6 +207,13 @@ class SearchRunner:
                     ),
                 )
                 used.add(expanded.key)
+                if not self._novel(expanded):
+                    choices = [
+                        item
+                        for item in choices
+                        if item[1].key not in used
+                    ]
+                    continue
                 concept = self.archive.add(
                     expression,
                     expanded,
