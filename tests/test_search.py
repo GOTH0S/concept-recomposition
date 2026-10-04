@@ -50,7 +50,6 @@ def test_sham_matches_reify_promotion_count() -> None:
         proposal_budget=500,
         promotion_schedule=reify.promotion_schedule,
     ).run()
-
     assert len(sham.archive) == len(reify.archive)
 
 
@@ -65,14 +64,15 @@ def test_reset_never_uses_concepts() -> None:
     assert all(not record.concept_refs for record in result.records)
 
 
-def test_decoy_has_no_exact_target() -> None:
+def test_high_confirmation_threshold_blocks_decoy_growth() -> None:
     result = SearchRunner(
         build_world("decoy", seed=3),
         "reify",
         seed=3,
         proposal_budget=300,
+        promotion_threshold=0.99,
     ).run()
-    assert not result.distinct_targets
+    assert not result.archive.ids
 
 
 def test_reified_proposals_can_exceed_local_depth() -> None:
@@ -83,3 +83,9 @@ def test_reified_proposals_can_exceed_local_depth() -> None:
         proposal_budget=500,
     ).run()
     assert max(record.expanded_depth for record in result.records) > 2
+
+
+def test_reuse_world_requires_both_downstream_targets() -> None:
+    world = build_world("reuse", seed=0)
+    assert len(world.targets) == 2
+    assert world.required_targets == 2

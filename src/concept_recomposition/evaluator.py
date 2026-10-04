@@ -1,10 +1,23 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 
 from .expression import Expression
 from .operators import evaluate
 from .worlds import World
+
+
+@dataclass(frozen=True)
+class EvidenceScore:
+    discovery: float
+    confirmation: float
+    heldout: float
+
+    @property
+    def promotion(self) -> float:
+        return min(self.discovery, self.confirmation)
 
 
 def _corr(left: np.ndarray, right: np.ndarray) -> float:
@@ -21,14 +34,33 @@ def _corr(left: np.ndarray, right: np.ndarray) -> float:
     return float(abs(np.dot(x, y) / scale))
 
 
+def _best_corr(values: np.ndarray, outcomes: tuple[np.ndarray, ...]) -> float:
+    return max(_corr(values, target) for target in outcomes)
+
+
 def score_expression(
     expression: Expression,
     world: World,
     concepts: dict[str, Expression],
-    split: int = 240,
+    *,
+    discovery_end: int,
+    heldout_start: int,
     cache: dict[str, np.ndarray] | None = None,
-) -> tuple[float, float]:
+) -> EvidenceScore:
+    if not 20 <= discovery_end < heldout_start <= len(next(iter(world.data.values()))):
+        raise ValueError("invalid evidence split")
+
     values = evaluate(expression, world.data, concepts, cache)
-    validation = max(_corr(values[:split], target[:split]) for target in world.outcomes)
-    heldout = max(_corr(values[split:], target[split:]) for target in world.outcomes)
-    return validation, heldout
+    discovery = _best_corr(
+        values[:discovery_end],
+        tuple(target[:discovery_end] for target in world.outcomes),
+    )
+    confirmation = _best_corr(
+        values[discovery_end:heldout_start],
+        tuple(target[discovery_end:heldout_start] for target in world.outcomes),
+    )
+    heldout = _best_corr(
+        values[heldout_start:],
+        tuple(target[heldout_start:] for target in world.outcomes),
+    )
+    return EvidenceScore(discovery, confirmation, heldout)
