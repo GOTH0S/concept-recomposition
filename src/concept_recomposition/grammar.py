@@ -43,22 +43,24 @@ class Grammar:
         )
 
     def _terminals(self, concept_ids: Sequence[str]) -> tuple[Expression, ...]:
-        raws = tuple(Expression.raw(name) for name in self.raw_variables)
-        concepts = tuple(Expression.concept(name) for name in concept_ids)
-        return raws + concepts
+        return (
+            tuple(Expression.raw(name) for name in self.raw_variables)
+            + tuple(Expression.concept(name) for name in concept_ids)
+        )
 
     def _choose_op(
         self,
         rng: np.random.Generator,
+        choices: tuple[str, ...],
         op_weights: Mapping[str, float] | None,
     ) -> str:
         if not op_weights:
-            return str(rng.choice(SERIES_OPS))
+            return str(rng.choice(choices))
         weights = np.array(
-            [max(float(op_weights.get(op, 1.0)), 1e-6) for op in SERIES_OPS],
+            [max(float(op_weights.get(op, 1.0)), 1e-6) for op in choices],
             dtype=np.float64,
         )
-        return str(rng.choice(SERIES_OPS, p=weights / weights.sum()))
+        return str(rng.choice(choices, p=weights / weights.sum()))
 
     def _series(
         self,
@@ -72,7 +74,8 @@ class Grammar:
         if depth == 0 or (not force_op and rng.random() < self.terminal_probability):
             return terminals[int(rng.integers(len(terminals)))]
 
-        op = self._choose_op(rng, op_weights)
+        choices = SERIES_OPS if depth >= 2 else tuple(op for op in SERIES_OPS if op != "where")
+        op = self._choose_op(rng, choices, op_weights)
         child_depth = depth - 1
 
         if op in UNARY_SIMPLE:
@@ -87,7 +90,6 @@ class Grammar:
             )
 
         if op in UNARY_PARAMS:
-            param = int(rng.choice(UNARY_PARAMS[op]))
             return Expression.unary(
                 op,
                 self._series(
@@ -96,7 +98,7 @@ class Grammar:
                     terminals=terminals,
                     op_weights=op_weights,
                 ),
-                param,
+                int(rng.choice(UNARY_PARAMS[op])),
             )
 
         if op in BINARY:
@@ -119,13 +121,13 @@ class Grammar:
         condition = Expression.compare(
             self._series(
                 rng,
-                depth=child_depth,
+                depth=depth - 2,
                 terminals=terminals,
                 op_weights=op_weights,
             ),
             self._series(
                 rng,
-                depth=child_depth,
+                depth=depth - 2,
                 terminals=terminals,
                 op_weights=op_weights,
             ),
@@ -207,16 +209,13 @@ def sample_pool(
         return ()
     if count >= len(pool):
         return tuple(pool)
-
+    probabilities = None
     if op_weights:
         weights = np.array(
             [max(float(op_weights.get(expression.op, 1.0)), 1e-6) for expression in pool],
             dtype=np.float64,
         )
         probabilities = weights / weights.sum()
-    else:
-        probabilities = None
-
     indices = rng.choice(len(pool), size=count, replace=False, p=probabilities)
     return tuple(pool[int(index)] for index in indices)
 

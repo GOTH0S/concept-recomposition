@@ -14,6 +14,12 @@ def test_worlds_are_deterministic() -> None:
         )
 
 
+def test_nontrivial_targets_exceed_local_depth() -> None:
+    for name in ("deep", "reuse", "context"):
+        world = build_world(name)
+        assert world.intermediates
+        assert all(target.depth > 2 for target in world.targets)
+
+
 def test_decoy_has_no_hidden_expression() -> None:
-    world = build_world("decoy")
-    assert not world.targets
+    assert not build_world("decoy").targets

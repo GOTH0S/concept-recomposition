@@ -23,9 +23,9 @@ def test_sampled_expression_respects_local_depth() -> None:
     grammar = Grammar(("x1", "x2"), max_local_depth=2)
     rng = np.random.default_rng(11)
 
-    expressions = [grammar.sample(rng) for _ in range(200)]
+    expressions = [grammar.sample(rng) for _ in range(500)]
 
-    assert max(expression.depth for expression in expressions) <= 3
+    assert max(expression.depth for expression in expressions) <= 2
 
 
 def test_concept_can_compress_deeper_expression() -> None:
@@ -37,15 +37,12 @@ def test_concept_can_compress_deeper_expression() -> None:
     )
     rng = np.random.default_rng(3)
 
-    sampled = [
-        grammar.sample(rng, concept_ids=("C000",))
-        for _ in range(1000)
-    ]
+    sampled = [grammar.sample(rng, concept_ids=("C000",)) for _ in range(1000)]
     with_concept = next(
         expression
         for expression in sampled
         if "C000" in expression.concept_ids() and expression.depth >= 1
     )
 
-    assert with_concept.depth <= 3
+    assert with_concept.depth <= 2
     assert with_concept.expanded({"C000": concept_expression}).depth > with_concept.depth

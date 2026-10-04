@@ -17,6 +17,8 @@ class World:
     data: dict[str, FloatArray]
     targets: tuple[Expression, ...]
     outcomes: tuple[FloatArray, ...]
+    intermediates: tuple[Expression, ...] = ()
+    validation_end: int = 360
 
     @property
     def target_keys(self) -> frozenset[str]:
@@ -43,28 +45,33 @@ def _with_noise(
 ) -> FloatArray:
     signal = np.asarray(evaluate(expression, data), dtype=np.float64)
     scale = np.nanstd(signal)
-    return signal + rng.normal(scale=max(scale, 1e-6) * 0.08, size=signal.size)
+    return signal + rng.normal(scale=max(scale, 1e-6) * 0.10, size=signal.size)
 
 
-def build_world(name: str, seed: int = 0, n: int = 360) -> World:
+def build_world(name: str, seed: int = 0, n: int = 600) -> World:
     data = _raw_data(seed, n)
     rng = np.random.default_rng(seed + 10_000)
     x1, x2, x3, _, x5 = (Expression.raw(f"x{i}") for i in range(1, 6))
+    intermediates: tuple[Expression, ...] = ()
 
     if name == "shallow":
         targets = (Expression.unary("diff", x1, 5),)
     elif name == "deep":
-        z = Expression.unary("mean", x2, 5)
+        z = Expression.unary("mean", Expression.unary("diff", x2, 5), 10)
+        intermediates = (z,)
         targets = (Expression.unary("mean", z, 3),)
     elif name == "reuse":
-        z = Expression.unary("mean", x3, 5)
+        z = Expression.unary("mean", Expression.unary("diff", x3, 1), 5)
+        intermediates = (z,)
         targets = (
             Expression.unary("mean", z, 3),
             Expression.unary("lag", z, 1),
         )
     elif name == "context":
-        z = Expression.unary("mean", x2, 5)
-        targets = (Expression.where(Expression.compare(x5, x1), z, x2),)
+        z = Expression.unary("mean", Expression.unary("diff", x2, 1), 5)
+        intermediates = (z,)
+        condition = Expression.compare(x5, x1)
+        targets = (Expression.where(condition, z, x2),)
     elif name == "decoy":
         targets = ()
     else:
@@ -75,7 +82,13 @@ def build_world(name: str, seed: int = 0, n: int = 360) -> World:
         if targets
         else (rng.normal(size=n),)
     )
-    return World(name, data, targets, outcomes)
+    return World(
+        name=name,
+        data=data,
+        targets=targets,
+        outcomes=outcomes,
+        intermediates=intermediates,
+    )
 
 
 WORLD_NAMES = ("shallow", "deep", "reuse", "context", "decoy")
