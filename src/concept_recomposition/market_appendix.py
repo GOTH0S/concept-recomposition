@@ -39,7 +39,7 @@ def _download(path: Path) -> str:
     return payload.decode("utf-8")
 
 
-def build_market_world(cache: Path) -> tuple[World, int]:
+def build_market_world(cache: Path) -> World:
     rows = list(csv.DictReader(io.StringIO(_download(cache))))
     keep = [
         row
@@ -61,7 +61,13 @@ def build_market_world(cache: Path) -> tuple[World, int]:
         for i, row in enumerate(keep)
         if row["Date"] >= "2015-01-02"
     )
-    return World("market", data, (), (future_spy,)), split
+    return World(
+        name="market",
+        data=data,
+        targets=(),
+        outcomes=(future_spy,),
+        validation_end=split,
+    )
 
 
 def _summary(results: list[SearchResult]) -> dict[str, float]:
@@ -112,7 +118,7 @@ def run_market_appendix(
     seeds: int = 10,
     budget: int = 500,
 ) -> list[dict[str, object]]:
-    world, split = build_market_world(cache)
+    world = build_market_world(cache)
     buckets: dict[str, list[SearchResult]] = {
         arm: [] for arm in ARMS
     }
@@ -124,7 +130,6 @@ def run_market_appendix(
             seed=seed,
             proposal_budget=budget,
             promotion_threshold=0.05,
-            split=split,
         ).run()
         runs = {
             "reset": SearchRunner(
@@ -133,7 +138,6 @@ def run_market_appendix(
                 seed=seed,
                 proposal_budget=budget,
                 promotion_threshold=0.05,
-                split=split,
             ).run(),
             "reify": reify,
             "sham": SearchRunner(
@@ -142,7 +146,6 @@ def run_market_appendix(
                 seed=seed,
                 proposal_budget=budget,
                 promotion_threshold=0.05,
-                split=split,
                 promotion_schedule=reify.promotion_schedule,
             ).run(),
             "process": SearchRunner(
@@ -151,7 +154,6 @@ def run_market_appendix(
                 seed=seed,
                 proposal_budget=budget,
                 promotion_threshold=0.05,
-                split=split,
             ).run(),
         }
         for arm, result in runs.items():
