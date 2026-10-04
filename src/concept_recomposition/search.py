@@ -20,6 +20,9 @@ class CandidateRecord:
     generation: int
     expression: str
     expanded_key: str
+    expanded_size: int
+    expanded_depth: int
+    root_op: str
     validation_score: float
     heldout_score: float
     exact_target: bool
@@ -57,6 +60,7 @@ class SearchRunner:
         max_size: int = 7,
         promotions_per_generation: int = 4,
         promotion_threshold: float = 0.22,
+        split: int = 240,
         sham_schedule: tuple[tuple[int, ...], ...] | None = None,
     ) -> None:
         if proposal_budget < generations:
@@ -71,6 +75,7 @@ class SearchRunner:
         self.max_size = max_size
         self.promotions_per_generation = promotions_per_generation
         self.promotion_threshold = promotion_threshold
+        self.split = split
         self.sham_schedule = sham_schedule
         self.archive = ConceptArchive()
         self.op_weights = {op: 1.0 for op in OPS}
@@ -79,10 +84,6 @@ class SearchRunner:
     def _expanded_key(self, expression: Expression) -> str:
         return expression.expanded(self.archive.expressions).key
 
-    def _is_target(self, expression: Expression) -> bool:
-        return bool(self.world.target_keys) and (
-            self._expanded_key(expression) in self.world.target_keys
-        )
 
     def _promote(
         self,
@@ -123,7 +124,9 @@ class SearchRunner:
                     (),
                     max(2, target_size),
                 )
-                validation, _ = score_expression(expression, self.world, {})
+                validation, _ = score_expression(
+                    expression, self.world, {}, split=self.split
+                )
                 if expression.size > 1:
                     choices.append((expression, validation))
             if not choices:
@@ -195,13 +198,15 @@ class SearchRunner:
                     expression,
                     self.world,
                     self.archive.expressions,
+                    split=self.split,
                     cache=self.eval_cache,
                 )
                 refs = expression.concept_ids()
                 useful = validation >= self.promotion_threshold
                 if refs:
                     self.archive.note_use(refs, useful)
-                expanded_key = self._expanded_key(expression)
+                expanded = expression.expanded(self.archive.expressions)
+                expanded_key = expanded.key
                 exact = expanded_key in self.world.target_keys
                 target_key = expanded_key if exact else None
                 if exact:
@@ -218,6 +223,9 @@ class SearchRunner:
                         generation=generation,
                         expression=str(expression),
                         expanded_key=expanded_key,
+                        expanded_size=expanded.size,
+                        expanded_depth=expanded.depth,
+                        root_op=expanded.op,
                         validation_score=validation,
                         heldout_score=heldout,
                         exact_target=exact,
