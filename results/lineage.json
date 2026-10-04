@@ -1,0 +1,31 @@
+{
+  "world": "deep",
+  "seed": 5,
+  "first_target_proposal": 81,
+  "concepts": [
+    {
+      "concept_id": "C000",
+      "expression": "mean[5](x2)",
+      "expanded_size": 2,
+      "validation_score": 0.9480103028938811,
+      "generation": 0,
+      "proposal_uses": 28,
+      "useful_uses": 28
+    }
+  ],
+  "target_record": {
+    "proposal": 81,
+    "generation": 1,
+    "expression": "mean[3](C000)",
+    "expanded_key": "mean[3](mean[5](raw:x2))",
+    "expanded_size": 3,
+    "expanded_depth": 3,
+    "root_op": "mean",
+    "validation_score": 0.9962875346467004,
+    "heldout_score": 0.9970747984597694,
+    "validation_gain": 0.04827723175281928,
+    "exact_target": true,
+    "target_key": "mean[3](mean[5](raw:x2))",
+    "concept_refs": ["C000"]
+  }
+}
