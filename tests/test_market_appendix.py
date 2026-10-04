@@ -31,6 +31,7 @@ def test_market_summary_counts_stable_depth() -> None:
         required_targets=0,
         distinct_targets=(),
         useful_concepts=(),
+        target_subexpressions=frozenset(),
         generation_ends=(1,),
         promotion_schedule=((),),
     )
