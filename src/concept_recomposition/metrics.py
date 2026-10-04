@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Iterable
 
 import numpy as np
@@ -17,12 +16,24 @@ def _available_concepts(result: SearchResult, budget: int) -> set[str]:
     return available
 
 
-def _target_lineages(result: SearchResult, budget: int) -> list[set[str]]:
-    lineages = []
+def _target_lineages(
+    result: SearchResult,
+    budget: int,
+) -> list[tuple[str, set[str]]]:
+    lineages: list[tuple[str, set[str]]] = []
     for record in result.records:
-        if record.proposal > budget or not record.exact_target:
+        if (
+            record.proposal > budget
+            or not record.exact_target
+            or record.target_key is None
+        ):
             continue
-        lineages.append(result.archive.lineage(record.concept_refs))
+        lineages.append(
+            (
+                record.target_key,
+                result.archive.lineage(record.concept_refs),
+            )
+        )
     return lineages
 
 
@@ -30,18 +41,21 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
     records = [record for record in result.records if record.proposal <= budget]
     exact = [record for record in records if record.exact_target]
     available = _available_concepts(result, budget)
-    lineages = _target_lineages(result, budget)
-    useful = set().union(*lineages) if lineages else set()
-
-    target_use = Counter(
-        concept_id
-        for lineage in lineages
-        for concept_id in lineage
+    target_lineages = _target_lineages(result, budget)
+    useful = (
+        set().union(*(lineage for _, lineage in target_lineages))
+        if target_lineages
+        else set()
     )
+
+    target_use: dict[str, set[str]] = {}
+    for target_key, lineage in target_lineages:
+        for concept_id in lineage:
+            target_use.setdefault(concept_id, set()).add(target_key)
     shared = {
         concept_id
-        for concept_id, count in target_use.items()
-        if count >= 2
+        for concept_id, targets in target_use.items()
+        if len(targets) >= 2
     }
 
     selected = max(records, key=lambda record: record.promotion_score)
