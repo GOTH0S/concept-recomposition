@@ -175,26 +175,29 @@ class SearchRunner:
                 for item in tail
                 if item[1].key not in used
             ]
-            if not choices:
-                break
-            expression, expanded, validation, _ = min(
-                choices,
-                key=lambda item: (
-                    abs(item[1].size - target_size),
-                    item[2],
-                ),
-            )
-            concept = self.archive.add(
-                expression,
-                expanded,
-                validation,
-                generation,
-            )
-            if concept is None:
+            while choices:
+                expression, expanded, validation, _ = min(
+                    choices,
+                    key=lambda item: (
+                        abs(item[1].size - target_size),
+                        item[2],
+                    ),
+                )
                 used.add(expanded.key)
-                continue
-            used.add(expanded.key)
-            promoted.append(expanded.size)
+                concept = self.archive.add(
+                    expression,
+                    expanded,
+                    validation,
+                    generation,
+                )
+                if concept is not None:
+                    promoted.append(expanded.size)
+                    break
+                choices = [
+                    item
+                    for item in choices
+                    if item[1].key not in used
+                ]
 
         return tuple(promoted)
 
