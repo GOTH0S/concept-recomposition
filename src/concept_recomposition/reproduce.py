@@ -26,7 +26,7 @@ def main() -> None:
         "reach_rate",
         "mean_first_success",
         "mean_concepts",
-        "mean_unused_promotion_rate",
+        "mean_promotion_precision",
         "mean_reused_concepts",
         "mean_shared_target_concepts",
         "mean_max_target_depth",
