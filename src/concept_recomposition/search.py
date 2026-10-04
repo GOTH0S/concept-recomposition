@@ -54,7 +54,7 @@ class SearchRunner:
         generation_size: int = 50,
         active_concepts: int = 4,
         promotions_per_generation: int = 2,
-        promotion_threshold: float = 0.18,
+        promotion_threshold: float | None = None,
         split: int = 240,
         score_cache: dict[str, tuple[float, float]] | None = None,
         promotion_schedule: tuple[tuple[int, ...], ...] | None = None,
@@ -133,7 +133,10 @@ class SearchRunner:
         ranked = sorted(candidates, key=lambda item: item[2], reverse=True)
         sizes: list[int] = []
         for expression, expanded, validation, _ in ranked:
-            if validation < self.promotion_threshold:
+            if (
+                self.promotion_threshold is not None
+                and validation < self.promotion_threshold
+            ):
                 break
             concept = self.archive.add(
                 expression,
@@ -224,7 +227,10 @@ class SearchRunner:
                 if refs:
                     self.archive.note_use(
                         refs,
-                        useful=validation >= self.promotion_threshold,
+                        useful=(
+                            self.promotion_threshold is None
+                            or validation >= self.promotion_threshold
+                        ),
                     )
                 if exact:
                     distinct_targets.add(expanded.key)
