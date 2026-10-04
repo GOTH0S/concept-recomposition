@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .expression import Expression
+from .grammar import CANONICAL_OPS, CANONICAL_PARAMS
 from .operators import evaluate
 
 FloatArray = NDArray[np.float64]
@@ -19,6 +20,12 @@ class World:
     outcomes: tuple[FloatArray, ...]
     intermediates: tuple[Expression, ...] = ()
     validation_end: int = 360
+    grammar_ops: tuple[str, ...] = CANONICAL_OPS
+    grammar_params: tuple[tuple[str, tuple[int, ...]], ...] = tuple(
+        CANONICAL_PARAMS.items()
+    )
+    conditions: tuple[Expression, ...] = ()
+    terminal_probability: float = 0.65
 
     @property
     def target_keys(self) -> frozenset[str]:
@@ -53,24 +60,28 @@ def build_world(name: str, seed: int = 0, n: int = 600) -> World:
     rng = np.random.default_rng(seed + 10_000)
     x1, x2, x3, _, x5 = (Expression.raw(f"x{i}") for i in range(1, 6))
     intermediates: tuple[Expression, ...] = ()
+    conditions: tuple[Expression, ...] = ()
+    grammar_ops = CANONICAL_OPS
 
     if name == "shallow":
-        targets = (Expression.unary("diff", x1, 5),)
+        targets = (Expression.unary("diff", x1, 1),)
     elif name == "deep":
-        z = Expression.unary("mean", Expression.unary("diff", x2, 5), 10)
+        z = Expression.unary("mean", Expression.unary("diff", x2, 1), 5)
         intermediates = (z,)
-        targets = (Expression.unary("mean", z, 3),)
+        targets = (Expression.unary("lag", z, 1),)
     elif name == "reuse":
         z = Expression.unary("mean", Expression.unary("diff", x3, 1), 5)
         intermediates = (z,)
         targets = (
-            Expression.unary("mean", z, 3),
             Expression.unary("lag", z, 1),
+            Expression.unary("diff", z, 1),
         )
     elif name == "context":
         z = Expression.unary("mean", Expression.unary("diff", x2, 1), 5)
         intermediates = (z,)
         condition = Expression.compare(x5, x1)
+        conditions = (condition,)
+        grammar_ops = CANONICAL_OPS + ("where",)
         targets = (Expression.where(condition, z, x2),)
     elif name == "decoy":
         targets = ()
@@ -88,6 +99,8 @@ def build_world(name: str, seed: int = 0, n: int = 600) -> World:
         targets=targets,
         outcomes=outcomes,
         intermediates=intermediates,
+        grammar_ops=grammar_ops,
+        conditions=conditions,
     )
 
 

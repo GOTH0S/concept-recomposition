@@ -21,5 +21,11 @@ def test_nontrivial_targets_exceed_local_depth() -> None:
         assert all(target.depth > 2 for target in world.targets)
 
 
+def test_context_uses_one_observable_condition() -> None:
+    world = build_world("context")
+    assert len(world.conditions) == 1
+    assert "where" in world.grammar_ops
+
+
 def test_decoy_has_no_hidden_expression() -> None:
     assert not build_world("decoy").targets

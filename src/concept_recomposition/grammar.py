@@ -8,15 +8,25 @@ import numpy as np
 from .expression import Expression
 from .operators import BINARY, UNARY_PARAMS, UNARY_SIMPLE
 
-SERIES_OPS = tuple(UNARY_SIMPLE) + tuple(UNARY_PARAMS) + tuple(BINARY) + ("where",)
-OPS = SERIES_OPS + ("gt",)
+CANONICAL_OPS = ("lag", "diff", "mean", "std", "add", "sub")
+CANONICAL_PARAMS = {
+    "lag": (1,),
+    "diff": (1,),
+    "mean": (5,),
+    "std": (5,),
+}
+ALL_SERIES_OPS = tuple(UNARY_SIMPLE) + tuple(UNARY_PARAMS) + tuple(BINARY) + ("where",)
+OPS = ALL_SERIES_OPS + ("gt",)
 
 
 @dataclass(frozen=True)
 class Grammar:
     raw_variables: tuple[str, ...]
     max_local_depth: int = 2
-    terminal_probability: float = 0.35
+    terminal_probability: float = 0.65
+    operators: tuple[str, ...] = CANONICAL_OPS
+    param_choices: Mapping[str, tuple[int, ...]] | None = None
+    conditions: tuple[Expression, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.raw_variables:
@@ -25,6 +35,10 @@ class Grammar:
             raise ValueError("max_local_depth must be positive")
         if not 0.0 <= self.terminal_probability < 1.0:
             raise ValueError("terminal_probability must lie in [0, 1)")
+        if any(op not in ALL_SERIES_OPS for op in self.operators):
+            raise ValueError("unknown grammar operator")
+        if "where" in self.operators and not self.conditions:
+            raise ValueError("where requires at least one observable condition")
 
     def sample(
         self,
@@ -67,6 +81,11 @@ class Grammar:
         )
         return str(rng.choice(choices, p=weights / weights.sum()))
 
+    def _params(self, op: str) -> tuple[int, ...]:
+        if self.param_choices and op in self.param_choices:
+            return self.param_choices[op]
+        return UNARY_PARAMS[op]
+
     def _series(
         self,
         rng: np.random.Generator,
@@ -80,7 +99,11 @@ class Grammar:
         if depth == 0 or (not force_op and rng.random() < self.terminal_probability):
             return terminals[int(rng.integers(len(terminals)))]
 
-        choices = SERIES_OPS if depth >= 2 else tuple(op for op in SERIES_OPS if op != "where")
+        choices = tuple(
+            op
+            for op in self.operators
+            if op != "where" or depth >= 2
+        )
         op = self._choose_op(rng, choices, parent_op, transition_weights)
         child_depth = depth - 1
 
@@ -95,30 +118,15 @@ class Grammar:
 
         if op in UNARY_SIMPLE:
             return Expression.unary(op, child(op))
-
         if op in UNARY_PARAMS:
-            return Expression.unary(op, child(op), int(rng.choice(UNARY_PARAMS[op])))
-
+            return Expression.unary(op, child(op), int(rng.choice(self._params(op))))
         if op in BINARY:
             return Expression.binary(op, child(op), child(op))
 
-        condition = Expression.compare(
-            self._series(
-                rng,
-                depth=depth - 2,
-                terminals=terminals,
-                transition_weights=transition_weights,
-                parent_op="gt",
-            ),
-            self._series(
-                rng,
-                depth=depth - 2,
-                terminals=terminals,
-                transition_weights=transition_weights,
-                parent_op="gt",
-            ),
-        )
-        return Expression.where(condition, child("where"), child("where"))
+        condition = self.conditions[int(rng.integers(len(self.conditions)))]
+        left = terminals[int(rng.integers(len(terminals)))]
+        right = terminals[int(rng.integers(len(terminals)))]
+        return Expression.where(condition, left, right)
 
 
 def proposal_pool(

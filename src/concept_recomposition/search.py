@@ -63,8 +63,8 @@ class SearchRunner:
         proposal_budget: int,
         generation_size: int = 50,
         local_depth: int = 2,
-        active_concepts: int = 6,
-        promotions_per_generation: int = 2,
+        active_concepts: int = 3,
+        promotions_per_generation: int = 1,
         promotion_threshold: float = 0.20,
         promotion_schedule: tuple[tuple[PromotionShape, ...], ...] | None = None,
         score_cache: dict[str, tuple[float, float]] | None = None,
@@ -83,7 +83,14 @@ class SearchRunner:
         self.promotions_per_generation = promotions_per_generation
         self.promotion_threshold = promotion_threshold
         self.reference_schedule = promotion_schedule
-        self.grammar = Grammar(tuple(world.data), max_local_depth=local_depth)
+        self.grammar = Grammar(
+            tuple(world.data),
+            max_local_depth=local_depth,
+            terminal_probability=world.terminal_probability,
+            operators=world.grammar_ops,
+            param_choices=dict(world.grammar_params),
+            conditions=world.conditions,
+        )
         self.archive = ConceptArchive()
         self.motifs = MotifModel()
         self.score_cache = score_cache if score_cache is not None else {}
