@@ -27,10 +27,17 @@ def summarize(results: Iterable[SearchResult]) -> dict[str, float]:
         ),
         "mean_concepts": float(np.mean([len(result.archive) for result in values])),
         "mean_false_expansion": float(
-            np.mean([result.archive.false_expansion_rate() for result in values])
+            np.mean(
+                [
+                    result.archive.false_expansion_rate(result.useful_concepts)
+                    for result in values
+                ]
+            )
         ),
         "mean_best_validation": float(
             np.mean([result.best_validation for result in values])
         ),
-        "mean_best_heldout": float(np.mean([result.best_heldout for result in values])),
+        "mean_best_heldout": float(
+            np.mean([result.best_heldout for result in values])
+        ),
     }
