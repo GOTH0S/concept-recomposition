@@ -58,7 +58,7 @@ class SearchRunner:
         proposal_budget: int,
         generation_size: int = 50,
         active_concepts: int = 4,
-        promotions_per_generation: int = 4,
+        promotions_per_generation: int = 1,
         promotion_threshold: float = 0.20,
         discovery_end: int = 180,
         heldout_start: int = 270,
