@@ -1,0 +1,5 @@
+arm,seeds,budget,mean_stable_candidates,mean_max_stable_depth,mean_stable_root_ops,mean_reused_concepts,mean_best_heldout_corr
+reset,10,500,75.4,2.0,9.6,0.0,0.10043578447167609
+reify,10,500,147.3,9.7,11.9,22.6,0.1029120895175537
+sham,10,500,49.5,7.1,9.3,12.7,0.10029785790504486
+process,10,500,136.0,10.2,10.7,23.8,0.10192302404961814
