@@ -53,7 +53,7 @@ class SearchRunner:
         proposal_budget: int,
         generation_size: int = 50,
         active_concepts: int = 4,
-        promotions_per_generation: int = 2,
+        promotions_per_generation: int = 4,
         promotion_threshold: float | None = None,
         split: int = 240,
         score_cache: dict[str, tuple[float, float]] | None = None,
