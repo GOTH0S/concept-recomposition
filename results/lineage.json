@@ -1,34 +1,40 @@
 {
   "world": "deep",
-  "seed": 20,
-  "first_target_proposal": 121,
+  "seed": 2,
+  "first_target_proposal": 369,
   "concepts": [
     {
       "concept_id": "C001",
       "expression": "mean[5](x2)",
       "expanded_key": "mean[5](raw:x2)",
       "expanded_size": 2,
-      "promotion_score": 0.9561359229236542,
+      "promotion_score": 0.9419850647105167,
+      "confirmation_score": 0.9419850647105167,
       "generation": 1,
-      "proposal_uses": 49,
-      "useful_uses": 4
+      "proposal_uses": 134,
+      "useful_uses": 2
     }
   ],
   "target_record": {
-    "proposal": 121,
-    "generation": 2,
+    "proposal": 369,
+    "generation": 7,
     "expression": "mean[3](C001)",
+    "local_size": 2,
+    "local_depth": 2,
     "expanded_key": "mean[3](mean[5](raw:x2))",
     "expanded_size": 3,
     "expanded_depth": 3,
     "root_op": "mean",
-    "discovery_score": 0.9972504523428849,
-    "confirmation_score": 0.9967663679854284,
-    "promotion_score": 0.9967663679854284,
-    "heldout_score": 0.9945890960584087,
-    "confirmation_gain": 0.040630445061774156,
+    "discovery_score": 0.9970840474613261,
+    "confirmation_score": 0.9976002325177566,
+    "promotion_score": 0.9970840474613261,
+    "heldout_score": 0.9949519765542647,
+    "confirmation_gain": 0.05561516780723996,
     "exact_target": true,
     "target_key": "mean[3](mean[5](raw:x2))",
+    "matched_targets": [
+      "mean[3](mean[5](raw:x2))"
+    ],
     "concept_refs": [
       "C001"
     ]
