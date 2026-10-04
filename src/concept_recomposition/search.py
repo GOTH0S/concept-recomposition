@@ -20,6 +20,8 @@ class CandidateRecord:
     proposal: int
     generation: int
     expression: str
+    local_size: int
+    local_depth: int
     expanded_key: str
     expanded_size: int
     expanded_depth: int
@@ -290,6 +292,8 @@ class SearchRunner:
                         proposal=proposal,
                         generation=generation,
                         expression=str(expression),
+                        local_size=expression.size,
+                        local_depth=expression.depth,
                         expanded_key=expanded.key,
                         expanded_size=expanded.size,
                         expanded_depth=expanded.depth,
