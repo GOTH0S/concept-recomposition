@@ -51,43 +51,6 @@ def reachability() -> None:
     plt.close(fig)
 
 
-def world_check() -> None:
-    rows = _rows()
-    full = [row for row in rows if int(row["budget"]) == 500]
-    worlds = ("shallow", "deep", "reuse", "context", "decoy")
-    arms = ("reset", "sham", "reify", "process")
-    x = np.arange(len(worlds))
-    width = 0.19
-    fig, ax = plt.subplots(figsize=(7.6, 4.2))
-    for index, arm in enumerate(arms):
-        values = [
-            float(
-                next(
-                    row
-                    for row in full
-                    if row["world"] == world and row["arm"] == arm
-                )["reach_rate"]
-            )
-            for world in worlds
-        ]
-        ax.bar(
-            x + (index - 1.5) * width,
-            values,
-            width,
-            label=arm.upper(),
-            color=COLORS[arm],
-        )
-    ax.set_xticks(x, worlds)
-    ax.set_ylim(0, 1.05)
-    ax.set_ylabel("target reach rate")
-    seeds = next(row["seeds"] for row in full)
-    ax.set_title(f"500 proposals, {seeds} seeds")
-    ax.legend(frameon=False, ncol=4)
-    fig.tight_layout()
-    FIGURES.mkdir(exist_ok=True)
-    fig.savefig(FIGURES / "worlds.svg")
-    plt.close(fig)
-
 
 def lineage() -> None:
     payload = json.loads(
@@ -170,7 +133,6 @@ def process_comparison() -> None:
 
 def render_all() -> None:
     reachability()
-    world_check()
     lineage()
     process_comparison()
 
