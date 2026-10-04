@@ -82,6 +82,7 @@ def test_reified_proposals_can_exceed_local_depth() -> None:
         seed=1,
         proposal_budget=500,
     ).run()
+    assert all(record.local_depth <= 2 for record in result.records)
     assert max(record.expanded_depth for record in result.records) > 2
 
 
