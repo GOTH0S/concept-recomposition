@@ -14,6 +14,7 @@ def test_market_summary_counts_stable_depth() -> None:
         root_op="raw",
         validation_score=0.08,
         heldout_score=0.04,
+        validation_gain=0.0,
         exact_target=False,
         target_key=None,
         concept_refs=(),
@@ -23,13 +24,10 @@ def test_market_summary_counts_stable_depth() -> None:
         records=[record],
         archive=ConceptArchive(),
         first_target_proposal=None,
-        target_hits=0,
         distinct_targets=(),
         useful_concepts=(),
-        best_validation=0.08,
-        best_heldout=0.04,
         generation_ends=(1,),
-        sham_schedule=(),
+        promotion_schedule=((),),
     )
     summary = _summary([result])
     assert summary["mean_stable_candidates"] == 1.0

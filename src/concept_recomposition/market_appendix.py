@@ -33,6 +33,7 @@ def _download(path: Path) -> str:
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = response.read()
         path.write_bytes(payload)
+
     if hashlib.sha256(payload).hexdigest() != SOURCE_SHA256:
         raise ValueError("price snapshot hash mismatch")
     return payload.decode("utf-8")
@@ -40,49 +41,82 @@ def _download(path: Path) -> str:
 
 def build_market_world(cache: Path) -> tuple[World, int]:
     rows = list(csv.DictReader(io.StringIO(_download(cache))))
-    keep = [row for row in rows if "2008-01-01" <= row["Date"] <= "2019-12-31"]
+    keep = [
+        row
+        for row in rows
+        if "2008-01-01" <= row["Date"] <= "2019-12-31"
+    ]
     tickers = ("SPY", "QQQ", "TLT", "GLD", "EEM")
-    prices = np.array([[float(row[ticker]) for ticker in tickers] for row in keep])
+    prices = np.array(
+        [[float(row[ticker]) for ticker in tickers] for row in keep]
+    )
     returns = np.full_like(prices, np.nan)
     returns[1:] = np.log(prices[1:] / prices[:-1])
+
     future_spy = np.full(returns.shape[0], np.nan)
     future_spy[:-1] = returns[1:, 0]
     data = {f"x{i + 1}": returns[:, i] for i in range(5)}
-    split = next(i for i, row in enumerate(keep) if row["Date"] >= "2015-01-02")
+    split = next(
+        i
+        for i, row in enumerate(keep)
+        if row["Date"] >= "2015-01-02"
+    )
     return World("market", data, (), (future_spy,)), split
 
 
 def _summary(results: list[SearchResult]) -> dict[str, float]:
-    max_depth = []
     stable_count = []
+    max_depth = []
     unique_roots = []
     reused = []
-    best = []
+    best_heldout = []
+
     for result in results:
         stable = [
             record
             for record in result.records
-            if record.validation_score >= 0.05 and record.heldout_score >= 0.02
+            if record.validation_score >= 0.05
+            and record.heldout_score >= 0.02
         ]
-        max_depth.append(max((record.expanded_depth for record in stable), default=0))
         stable_count.append(len(stable))
-        unique_roots.append(len({record.root_op for record in stable}))
-        reused.append(sum(row["proposal_uses"] > 0 for row in result.archive.rows()))
-        best.append(result.best_heldout)
+        max_depth.append(
+            max(
+                (record.expanded_depth for record in stable),
+                default=0,
+            )
+        )
+        unique_roots.append(
+            len({record.root_op for record in stable})
+        )
+        reused.append(
+            sum(
+                int(row["proposal_uses"]) > 0
+                for row in result.archive.rows()
+            )
+        )
+        best_heldout.append(
+            max(record.heldout_score for record in result.records)
+        )
+
     return {
         "mean_stable_candidates": float(np.mean(stable_count)),
         "mean_max_stable_depth": float(np.mean(max_depth)),
         "mean_stable_root_ops": float(np.mean(unique_roots)),
         "mean_reused_concepts": float(np.mean(reused)),
-        "mean_best_heldout_corr": float(np.mean(best)),
+        "mean_best_heldout_corr": float(np.mean(best_heldout)),
     }
 
 
 def run_market_appendix(
-    cache: Path, seeds: int = 10, budget: int = 500
+    cache: Path,
+    seeds: int = 10,
+    budget: int = 500,
 ) -> list[dict[str, object]]:
     world, split = build_market_world(cache)
-    buckets: dict[str, list[SearchResult]] = {arm: [] for arm in ARMS}
+    buckets: dict[str, list[SearchResult]] = {
+        arm: [] for arm in ARMS
+    }
+
     for seed in range(seeds):
         reify = SearchRunner(
             world,
@@ -109,7 +143,7 @@ def run_market_appendix(
                 proposal_budget=budget,
                 promotion_threshold=0.05,
                 split=split,
-                sham_schedule=reify.sham_schedule,
+                promotion_schedule=reify.promotion_schedule,
             ).run(),
             "process": SearchRunner(
                 world,
@@ -124,30 +158,54 @@ def run_market_appendix(
             buckets[arm].append(result)
 
     return [
-        {"arm": arm, "seeds": seeds, "budget": budget, **_summary(buckets[arm])}
+        {
+            "arm": arm,
+            "seeds": seeds,
+            "budget": budget,
+            **_summary(buckets[arm]),
+        }
         for arm in ARMS
     ]
 
 
-def write_csv(rows: list[dict[str, object]], path: Path) -> None:
+def write_csv(
+    rows: list[dict[str, object]],
+    path: Path,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=rows[0].keys(),
+        )
         writer.writeheader()
         writer.writerows(rows)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the stale-market appendix")
-    parser.add_argument("--cache", type=Path, default=Path(".cache/prices.csv"))
+    parser = argparse.ArgumentParser(
+        description="Run the stale-market appendix"
+    )
+    parser.add_argument(
+        "--cache",
+        type=Path,
+        default=Path(".cache/prices.csv"),
+    )
     parser.add_argument("--seeds", type=int, default=10)
     parser.add_argument("--budget", type=int, default=500)
     parser.add_argument(
-        "--out", type=Path, default=Path("results/market_appendix.csv")
+        "--out",
+        type=Path,
+        default=Path("results/market_appendix.csv"),
     )
     args = parser.parse_args()
+
     write_csv(
-        run_market_appendix(args.cache, args.seeds, args.budget),
+        run_market_appendix(
+            args.cache,
+            args.seeds,
+            args.budget,
+        ),
         args.out,
     )
 

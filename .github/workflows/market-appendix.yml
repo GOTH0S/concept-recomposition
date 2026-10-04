@@ -5,6 +5,7 @@ on:
     paths:
       - "src/concept_recomposition/market_appendix.py"
       - "src/concept_recomposition/search.py"
+      - "src/concept_recomposition/grammar.py"
       - ".github/workflows/market-appendix.yml"
   workflow_dispatch:
 
