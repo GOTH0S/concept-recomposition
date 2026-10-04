@@ -44,23 +44,29 @@ def run_sweep(seeds: int) -> tuple[list[dict[str, object]], dict[str, object]]:
                 cell = run_cell(world_name, budget, seed)
                 for arm, result in cell.items():
                     buckets[arm].append(result)
-                    if not lineage and result.reached_target and len(result.archive):
-                        lineage = {
-                            "world": world_name,
-                            "arm": arm,
-                            "budget": budget,
-                            "seed": seed,
-                            "first_target_proposal": result.first_target_proposal,
-                            "concepts": result.archive.rows(),
-                            "target_record": next(
-                                (
-                                    record.__dict__
-                                    for record in result.records
-                                    if record.exact_target
-                                ),
-                                None,
-                            ),
-                        }
+                    if (
+                        not lineage
+                        and world_name in {"deep", "reuse", "context"}
+                        and arm == "reify"
+                        and result.reached_target
+                    ):
+                        target_record = next(
+                            (record for record in result.records if record.exact_target),
+                            None,
+                        )
+                        if target_record is not None and target_record.concept_refs:
+                            lineage = {
+                                "world": world_name,
+                                "arm": arm,
+                                "budget": budget,
+                                "seed": seed,
+                                "first_target_proposal": result.first_target_proposal,
+                                "concepts": result.archive.rows(),
+                                "target_record": target_record.__dict__,
+                                "trajectory": [
+                                    record.__dict__ for record in result.records
+                                ],
+                            }
             for arm in ARMS:
                 rows.append(
                     {
