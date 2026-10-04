@@ -94,7 +94,11 @@ def run_sweep(seeds: int) -> tuple[list[dict[str, object]], dict[str, object]]:
                                 "world": world_name,
                                 "seed": seed,
                                 "first_target_proposal": result.first_target_proposal,
-                                "concepts": result.archive.rows(),
+                                "concepts": [
+                                    row
+                                    for row in result.archive.rows()
+                                    if row["concept_id"] in target.concept_refs
+                                ],
                                 "target_record": target.__dict__,
                             }
 

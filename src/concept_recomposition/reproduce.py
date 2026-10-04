@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 from pathlib import Path
 
@@ -17,6 +18,27 @@ def main() -> None:
 
     rows, lineage = run_sweep(50)
     write_csv(rows, Path("results/summary.csv"))
+    headline = [
+        row
+        for row in rows
+        if (
+            row["budget"] == 500
+            or (
+                row["world"] in {"deep", "reuse", "context"}
+                and row["arm"] in {"reify", "process"}
+            )
+        )
+    ]
+    with Path("results/headline.csv").open(
+        "w", encoding="utf-8", newline=""
+    ) as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=headline[0].keys(),
+        )
+        writer.writeheader()
+        writer.writerows(headline)
+
     Path("results/lineage.json").write_text(
         json.dumps(lineage, indent=2) + "\n",
         encoding="utf-8",
