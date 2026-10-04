@@ -44,6 +44,7 @@ class SearchResult:
     required_targets: int
     distinct_targets: tuple[str, ...]
     useful_concepts: tuple[str, ...]
+    target_subexpressions: frozenset[str]
     generation_ends: tuple[int, ...]
     promotion_schedule: tuple[tuple[int, ...], ...]
 
@@ -278,6 +279,12 @@ class SearchRunner:
             generation_ends.append(proposal)
 
         useful = self.archive.lineage(tuple(target_concepts)) if target_concepts else set()
+        target_subexpressions = frozenset(
+            key
+            for target in self.world.targets
+            for key in target.subexpression_keys()
+            if not key.startswith("raw:")
+        )
         return SearchResult(
             world=self.world.name,
             arm=self.arm,
@@ -288,6 +295,7 @@ class SearchRunner:
             required_targets=self.world.required_targets,
             distinct_targets=tuple(sorted(distinct_targets)),
             useful_concepts=tuple(sorted(useful)),
+            target_subexpressions=target_subexpressions,
             generation_ends=tuple(generation_ends),
             promotion_schedule=tuple(promotion_schedule),
         )
