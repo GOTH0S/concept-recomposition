@@ -53,7 +53,7 @@ def reachability() -> None:
 
 def world_check() -> None:
     rows = _rows()
-    full = [row for row in rows if int(row["budget"]) == 500]
+    full_budget = max(int(row["budget"]) for row in rows)\n    full = [row for row in rows if int(row["budget"]) == full_budget]
     worlds = ("shallow", "deep", "reuse", "context", "decoy")
     arms = ("reset", "sham", "reify", "process")
     x = np.arange(len(worlds))
@@ -81,7 +81,7 @@ def world_check() -> None:
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("target reach rate")
     seeds = next(row["seeds"] for row in full)
-    ax.set_title(f"500 proposals, {seeds} seeds")
+    ax.set_title(f"{full_budget:,} proposals, {seeds} seeds")
     ax.legend(frameon=False, ncol=4)
     fig.tight_layout()
     FIGURES.mkdir(exist_ok=True)

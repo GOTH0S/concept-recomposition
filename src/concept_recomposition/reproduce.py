@@ -5,7 +5,7 @@ import csv
 import json
 from pathlib import Path
 
-from .experiment import run_sweep, write_csv
+from .experiment import BUDGETS, run_sweep, write_csv
 from .figures import render_all
 from .market_appendix import run_market_appendix
 from .market_appendix import write_csv as write_market
@@ -24,6 +24,8 @@ def main() -> None:
         "arm",
         "seeds",
         "reach_rate",
+        "intermediate_reach_rate",
+        "intermediate_promotion_rate",
         "mean_first_target",
         "mean_concepts",
         "mean_false_expansion",
@@ -36,7 +38,7 @@ def main() -> None:
         {field: row[field] for field in headline_fields}
         for row in rows
         if (
-            row["budget"] == 500
+            row["budget"] == max(BUDGETS)
             or (
                 row["world"] in {"deep", "reuse", "context"}
                 and row["arm"] in {"reify", "process"}
