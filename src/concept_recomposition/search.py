@@ -6,7 +6,7 @@ from typing import Literal
 import numpy as np
 
 from .archive import ConceptArchive
-from .evaluator import score_expression
+from .evaluator import EvidenceScore, score_expression
 from .expression import Expression
 from .grammar import OPS, concept_pool, operator_counts, proposal_pool, sample_pool
 from .worlds import World
@@ -23,9 +23,11 @@ class CandidateRecord:
     expanded_size: int
     expanded_depth: int
     root_op: str
-    validation_score: float
+    discovery_score: float
+    confirmation_score: float
+    promotion_score: float
     heldout_score: float
-    validation_gain: float
+    confirmation_gain: float
     exact_target: bool
     target_key: str | None
     concept_refs: tuple[str, ...]
@@ -33,12 +35,16 @@ class CandidateRecord:
 
 @dataclass
 class SearchResult:
+    world: str
     arm: Arm
     records: list[CandidateRecord]
     archive: ConceptArchive
     first_target_proposal: int | None
+    first_success_proposal: int | None
+    required_targets: int
     distinct_targets: tuple[str, ...]
     useful_concepts: tuple[str, ...]
+    target_subexpressions: frozenset[str]
     generation_ends: tuple[int, ...]
     promotion_schedule: tuple[tuple[int, ...], ...]
 
@@ -53,10 +59,11 @@ class SearchRunner:
         proposal_budget: int,
         generation_size: int = 50,
         active_concepts: int = 4,
-        promotions_per_generation: int = 4,
-        promotion_threshold: float | None = None,
-        split: int = 240,
-        score_cache: dict[str, tuple[float, float]] | None = None,
+        promotions_per_generation: int = 1,
+        promotion_threshold: float = 0.20,
+        discovery_end: int = 180,
+        heldout_start: int = 270,
+        score_cache: dict[str, EvidenceScore] | None = None,
         promotion_schedule: tuple[tuple[int, ...], ...] | None = None,
     ) -> None:
         if proposal_budget < generation_size:
@@ -74,21 +81,23 @@ class SearchRunner:
         self.active_concepts = active_concepts
         self.promotions_per_generation = promotions_per_generation
         self.promotion_threshold = promotion_threshold
-        self.split = split
+        self.discovery_end = discovery_end
+        self.heldout_start = heldout_start
         self.score_cache = score_cache if score_cache is not None else {}
         self.reference_schedule = promotion_schedule
         self.archive = ConceptArchive()
         self.op_weights = {op: 1.0 for op in OPS}
         self.eval_cache: dict[str, np.ndarray] = {}
 
-    def _score(self, expression: Expression) -> tuple[float, float]:
+    def _score(self, expression: Expression) -> EvidenceScore:
         expanded = expression.expanded(self.archive.expressions)
         if expanded.key not in self.score_cache:
             self.score_cache[expanded.key] = score_expression(
                 expanded,
                 self.world,
                 {},
-                split=self.split,
+                discovery_end=self.discovery_end,
+                heldout_start=self.heldout_start,
                 cache=self.eval_cache,
             )
         return self.score_cache[expanded.key]
@@ -105,10 +114,7 @@ class SearchRunner:
 
         active = self.archive.active_ids(self.active_concepts)
         derived = concept_pool(raw_variables, active)
-        derived_count = min(
-            round(self.generation_size * 0.7),
-            len(derived),
-        )
+        derived_count = min(round(self.generation_size * 0.7), len(derived))
         base_count = self.generation_size - derived_count
         return (
             sample_pool(
@@ -127,21 +133,22 @@ class SearchRunner:
 
     def _promote_scored(
         self,
-        candidates: list[tuple[Expression, Expression, float, float]],
+        candidates: list[tuple[Expression, Expression, EvidenceScore]],
         generation: int,
     ) -> tuple[int, ...]:
-        ranked = sorted(candidates, key=lambda item: item[2], reverse=True)
+        ranked = sorted(
+            candidates,
+            key=lambda item: item[2].promotion,
+            reverse=True,
+        )
         sizes: list[int] = []
-        for expression, expanded, validation, _ in ranked:
-            if (
-                self.promotion_threshold is not None
-                and validation < self.promotion_threshold
-            ):
+        for expression, expanded, score in ranked:
+            if score.promotion < self.promotion_threshold:
                 break
             concept = self.archive.add(
                 expression,
                 expanded,
-                validation,
+                score.promotion,
                 generation,
             )
             if concept is None:
@@ -149,14 +156,14 @@ class SearchRunner:
             sizes.append(expanded.size)
             if self.arm == "process":
                 for op, count in operator_counts(expression).items():
-                    self.op_weights[op] += count * max(validation, 0.05)
+                    self.op_weights[op] += count * score.promotion
             if len(sizes) == self.promotions_per_generation:
                 break
         return tuple(sizes)
 
     def _promote_sham(
         self,
-        candidates: list[tuple[Expression, Expression, float, float]],
+        candidates: list[tuple[Expression, Expression, EvidenceScore]],
         generation: int,
     ) -> tuple[int, ...]:
         assert self.reference_schedule is not None
@@ -164,30 +171,26 @@ class SearchRunner:
         if not target_sizes:
             return ()
 
-        ranked = sorted(candidates, key=lambda item: item[2])
+        ranked = sorted(candidates, key=lambda item: item[2].promotion)
         tail = ranked[: max(len(ranked) // 2, len(target_sizes))]
         used: set[str] = set()
         promoted: list[int] = []
 
         for target_size in target_sizes:
-            choices = [
-                item
-                for item in tail
-                if item[1].key not in used
-            ]
+            choices = [item for item in tail if item[1].key not in used]
             while choices:
-                expression, expanded, validation, _ = min(
+                expression, expanded, score = min(
                     choices,
                     key=lambda item: (
                         abs(item[1].size - target_size),
-                        item[2],
+                        item[2].promotion,
                     ),
                 )
                 used.add(expanded.key)
                 concept = self.archive.add(
                     expression,
                     expanded,
-                    validation,
+                    score.promotion,
                     generation,
                 )
                 if concept is not None:
@@ -204,6 +207,7 @@ class SearchRunner:
     def run(self) -> SearchResult:
         records: list[CandidateRecord] = []
         first_target: int | None = None
+        first_success: int | None = None
         distinct_targets: set[str] = set()
         target_concepts: set[str] = set()
         generation_ends: list[int] = []
@@ -214,29 +218,31 @@ class SearchRunner:
         proposal = 0
 
         for generation in range(generations):
-            candidates: list[tuple[Expression, Expression, float, float]] = []
+            candidates: list[tuple[Expression, Expression, EvidenceScore]] = []
             for expression in self._batch(raw_variables):
-                validation, heldout = self._score(expression)
+                score = self._score(expression)
                 expanded = expression.expanded(self.archive.expressions)
                 refs = expression.concept_ids()
                 parent_best = max(
                     (self.archive.score(ref) for ref in refs),
-                    default=validation,
+                    default=score.promotion,
                 )
-                gain = validation - parent_best if refs else 0.0
+                gain = score.confirmation - parent_best if refs else 0.0
                 exact = expanded.key in self.world.target_keys
 
                 proposal += 1
                 if refs:
-                    self.archive.note_use(
-                        refs,
-                        useful=gain > 0,
-                    )
+                    self.archive.note_use(refs, useful=gain > 0)
                 if exact:
                     distinct_targets.add(expanded.key)
                     target_concepts.update(refs)
                     if first_target is None:
                         first_target = proposal
+                    if (
+                        first_success is None
+                        and len(distinct_targets) >= self.world.required_targets
+                    ):
+                        first_success = proposal
 
                 records.append(
                     CandidateRecord(
@@ -247,17 +253,17 @@ class SearchRunner:
                         expanded_size=expanded.size,
                         expanded_depth=expanded.depth,
                         root_op=expanded.op,
-                        validation_score=validation,
-                        heldout_score=heldout,
-                        validation_gain=gain,
+                        discovery_score=score.discovery,
+                        confirmation_score=score.confirmation,
+                        promotion_score=score.promotion,
+                        heldout_score=score.heldout,
+                        confirmation_gain=gain,
                         exact_target=exact,
                         target_key=expanded.key if exact else None,
                         concept_refs=refs,
                     )
                 )
-                candidates.append(
-                    (expression, expanded, validation, heldout)
-                )
+                candidates.append((expression, expanded, score))
 
             if len(candidates) != self.generation_size:
                 raise RuntimeError("proposal pool could not fill the generation")
@@ -273,13 +279,23 @@ class SearchRunner:
             generation_ends.append(proposal)
 
         useful = self.archive.lineage(tuple(target_concepts)) if target_concepts else set()
+        target_subexpressions = frozenset(
+            key
+            for target in self.world.targets
+            for key in target.subexpression_keys()
+            if not key.startswith("raw:") and key != target.key
+        )
         return SearchResult(
+            world=self.world.name,
             arm=self.arm,
             records=records,
             archive=self.archive,
             first_target_proposal=first_target,
+            first_success_proposal=first_success,
+            required_targets=self.world.required_targets,
             distinct_targets=tuple(sorted(distinct_targets)),
             useful_concepts=tuple(sorted(useful)),
+            target_subexpressions=target_subexpressions,
             generation_ends=tuple(generation_ends),
             promotion_schedule=tuple(promotion_schedule),
         )

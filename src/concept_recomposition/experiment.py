@@ -7,6 +7,7 @@ from concurrent.futures import ProcessPoolExecutor
 from itertools import repeat
 from pathlib import Path
 
+from .evaluator import EvidenceScore
 from .metrics import summarize
 from .search import SearchResult, SearchRunner
 from .worlds import WORLD_NAMES, build_world
@@ -18,7 +19,7 @@ BUDGETS = (50, 100, 200, 350, 500)
 def run_cell(world_name: str, seed: int) -> dict[str, SearchResult]:
     world = build_world(world_name, seed=seed)
     budget = max(BUDGETS)
-    score_cache: dict[str, tuple[float, float]] = {}
+    score_cache: dict[str, EvidenceScore] = {}
 
     reify = SearchRunner(
         world,

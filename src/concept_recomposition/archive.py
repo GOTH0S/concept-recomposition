@@ -9,8 +9,9 @@ from .expression import Expression
 class Concept:
     concept_id: str
     expression: Expression
+    expanded_key: str
     expanded_size: int
-    validation_score: float
+    promotion_score: float
     generation: int
     proposal_uses: int = 0
     useful_uses: int = 0
@@ -39,7 +40,7 @@ class ConceptArchive:
         ranked = sorted(
             self._concepts.values(),
             key=lambda concept: (
-                concept.validation_score,
+                concept.promotion_score,
                 -concept.generation,
             ),
             reverse=True,
@@ -47,7 +48,7 @@ class ConceptArchive:
         return tuple(concept.concept_id for concept in ranked[:limit])
 
     def score(self, concept_id: str) -> float:
-        return self._concepts[concept_id].validation_score
+        return self._concepts[concept_id].promotion_score
 
     def add(
         self,
@@ -62,8 +63,9 @@ class ConceptArchive:
         concept = Concept(
             concept_id=concept_id,
             expression=expression,
+            expanded_key=expanded.key,
             expanded_size=expanded.size,
-            validation_score=score,
+            promotion_score=score,
             generation=generation,
         )
         self._concepts[concept_id] = concept
@@ -93,8 +95,9 @@ class ConceptArchive:
             {
                 "concept_id": concept.concept_id,
                 "expression": str(concept.expression),
+                "expanded_key": concept.expanded_key,
                 "expanded_size": concept.expanded_size,
-                "validation_score": concept.validation_score,
+                "promotion_score": concept.promotion_score,
                 "generation": concept.generation,
                 "proposal_uses": concept.proposal_uses,
                 "useful_uses": concept.useful_uses,

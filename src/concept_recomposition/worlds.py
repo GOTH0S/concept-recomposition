@@ -17,6 +17,7 @@ class World:
     data: dict[str, FloatArray]
     targets: tuple[Expression, ...]
     outcomes: tuple[FloatArray, ...]
+    required_targets: int
 
     @property
     def target_keys(self) -> frozenset[str]:
@@ -31,10 +32,7 @@ def _ar1(
     values = np.empty(n, dtype=np.float64)
     values[0] = rng.normal()
     for index in range(1, n):
-        values[index] = (
-            phi * values[index - 1]
-            + rng.normal(scale=0.8)
-        )
+        values[index] = phi * values[index - 1] + rng.normal(scale=0.8)
     return values
 
 
@@ -73,21 +71,26 @@ def build_world(
 
     if name == "shallow":
         targets = (Expression.unary("diff", x1, 5),)
+        required_targets = 1
     elif name == "deep":
         z = Expression.unary("mean", x2, 5)
         targets = (Expression.unary("mean", z, 3),)
+        required_targets = 1
     elif name == "reuse":
         z = Expression.unary("mean", x3, 5)
         targets = (
             Expression.unary("mean", z, 3),
             Expression.unary("lag", z, 1),
         )
+        required_targets = 2
     elif name == "context":
         data["x5"] = data["x5"] + 1.0
         z = Expression.unary("mean", x2, 5)
         targets = (Expression.where(x5, z, x2),)
+        required_targets = 1
     elif name == "decoy":
         targets = ()
+        required_targets = 0
     else:
         raise ValueError(f"unknown world: {name}")
 
@@ -99,7 +102,7 @@ def build_world(
     else:
         outcomes = (rng.normal(size=n),)
 
-    return World(name, data, targets, outcomes)
+    return World(name, data, targets, outcomes, required_targets)
 
 
 WORLD_NAMES = (
