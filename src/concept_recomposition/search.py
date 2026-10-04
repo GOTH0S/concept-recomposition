@@ -36,6 +36,16 @@ class CandidateRecord:
     reached_target: bool
 
 
+@dataclass(frozen=True, slots=True)
+class ConceptRecord:
+    name: str
+    expression: str
+    expanded_expression: str
+    generation: int
+    validation_score: float
+    reuse_count: int
+
+
 @dataclass(slots=True)
 class SearchResult:
     arm: Arm
@@ -46,6 +56,7 @@ class SearchResult:
     concepts_reused: int
     max_useful_depth: int
     false_expansion_rate: float
+    concepts: list[ConceptRecord]
     records: list[CandidateRecord]
 
 
@@ -186,6 +197,17 @@ class SearchRunner:
             if not concepts
             else 1.0 - len(useful_concepts) / len(concepts)
         )
+        concept_records = [
+            ConceptRecord(
+                concept.name,
+                str(concept.expression),
+                str(archive.expand(concept.expression)),
+                concept.generation,
+                concept.validation_score,
+                concept.reuse_count,
+            )
+            for concept in concepts
+        ]
         return SearchResult(
             self.arm,
             self.world.name,
@@ -195,6 +217,7 @@ class SearchRunner:
             reused,
             max_useful_depth,
             false_rate,
+            concept_records,
             records,
         )
 
