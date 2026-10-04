@@ -283,7 +283,7 @@ class SearchRunner:
             key
             for target in self.world.targets
             for key in target.subexpression_keys()
-            if not key.startswith("raw:")
+            if not key.startswith("raw:") and key != target.key
         )
         return SearchResult(
             world=self.world.name,
