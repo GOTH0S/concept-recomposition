@@ -9,11 +9,15 @@ from .expression import Expression
 class Concept:
     concept_id: str
     expression: Expression
+    expanded_key: str
     expanded_size: int
+    expanded_depth: int
     validation_score: float
     generation: int
+    proposal: int
     proposal_uses: int = 0
     useful_uses: int = 0
+    target_uses: int = 0
 
 
 class ConceptArchive:
@@ -25,23 +29,20 @@ class ConceptArchive:
         return len(self._concepts)
 
     @property
+    def ids(self) -> tuple[str, ...]:
+        return tuple(self._concepts)
+
+    @property
     def expressions(self) -> dict[str, Expression]:
         return {
             concept_id: concept.expression
             for concept_id, concept in self._concepts.items()
         }
 
-    @property
-    def ids(self) -> tuple[str, ...]:
-        return tuple(self._concepts)
-
     def active_ids(self, limit: int) -> tuple[str, ...]:
         ranked = sorted(
             self._concepts.values(),
-            key=lambda concept: (
-                concept.validation_score,
-                -concept.generation,
-            ),
+            key=lambda concept: (concept.validation_score, -concept.generation),
             reverse=True,
         )
         return tuple(concept.concept_id for concept in ranked[:limit])
@@ -55,6 +56,7 @@ class ConceptArchive:
         expanded: Expression,
         score: float,
         generation: int,
+        proposal: int,
     ) -> Concept | None:
         if expanded.key in self._by_expanded:
             return None
@@ -62,20 +64,31 @@ class ConceptArchive:
         concept = Concept(
             concept_id=concept_id,
             expression=expression,
+            expanded_key=expanded.key,
             expanded_size=expanded.size,
+            expanded_depth=expanded.depth,
             validation_score=score,
             generation=generation,
+            proposal=proposal,
         )
         self._concepts[concept_id] = concept
         self._by_expanded[expanded.key] = concept_id
         return concept
 
-    def note_use(self, concept_ids: tuple[str, ...], useful: bool) -> None:
+    def note_use(
+        self,
+        concept_ids: tuple[str, ...],
+        *,
+        useful: bool,
+        target: bool,
+    ) -> None:
         for concept_id in set(concept_ids):
             concept = self._concepts[concept_id]
             concept.proposal_uses += 1
             if useful:
                 concept.useful_uses += 1
+            if target:
+                concept.target_uses += 1
 
     def lineage(self, concept_ids: tuple[str, ...]) -> set[str]:
         found = set(concept_ids)
@@ -93,11 +106,15 @@ class ConceptArchive:
             {
                 "concept_id": concept.concept_id,
                 "expression": str(concept.expression),
+                "expanded_key": concept.expanded_key,
                 "expanded_size": concept.expanded_size,
+                "expanded_depth": concept.expanded_depth,
                 "validation_score": concept.validation_score,
                 "generation": concept.generation,
+                "proposal": concept.proposal,
                 "proposal_uses": concept.proposal_uses,
                 "useful_uses": concept.useful_uses,
+                "target_uses": concept.target_uses,
             }
             for concept in self._concepts.values()
         ]
