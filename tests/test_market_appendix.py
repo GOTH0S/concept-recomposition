@@ -19,6 +19,7 @@ def test_market_summary_counts_stable_depth() -> None:
         confirmation_gain=0.0,
         exact_target=False,
         target_key=None,
+        matched_targets=(),
         concept_refs=(),
     )
     result = SearchResult(
