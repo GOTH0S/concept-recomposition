@@ -6,10 +6,8 @@ from pathlib import Path
 
 from .experiment import run_sweep, write_csv
 from .figures import render_all
-from .market_appendix import (
-    run_market_appendix,
-    write_csv as write_market,
-)
+from .market_appendix import run_market_appendix
+from .market_appendix import write_csv as write_market
 
 
 def main() -> None:
