@@ -29,6 +29,19 @@ def run_cell(world_name: str, seed: int) -> dict[str, SearchResult]:
         score_cache=score_cache,
     ).run()
 
+    sham = SearchRunner(
+        world,
+        "sham",
+        seed=seed,
+        proposal_budget=budget,
+        score_cache=score_cache,
+        promotion_schedule=reify.promotion_schedule,
+    ).run()
+    if tuple(map(len, sham.promotion_schedule)) != tuple(
+        map(len, reify.promotion_schedule)
+    ):
+        raise RuntimeError("SHAM promotion count diverged from REIFY")
+
     return {
         "reset": SearchRunner(
             world,
@@ -38,14 +51,7 @@ def run_cell(world_name: str, seed: int) -> dict[str, SearchResult]:
             score_cache=score_cache,
         ).run(),
         "reify": reify,
-        "sham": SearchRunner(
-            world,
-            "sham",
-            seed=seed,
-            proposal_budget=budget,
-            score_cache=score_cache,
-            promotion_schedule=reify.promotion_schedule,
-        ).run(),
+        "sham": sham,
         "process": SearchRunner(
             world,
             "process",
