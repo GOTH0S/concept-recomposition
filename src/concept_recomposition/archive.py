@@ -9,6 +9,7 @@ from .expression import Expression
 class Concept:
     concept_id: str
     expression: Expression
+    expanded_size: int
     validation_score: float
     generation: int
     proposal_uses: int = 0
@@ -18,27 +19,55 @@ class Concept:
 class ConceptArchive:
     def __init__(self) -> None:
         self._concepts: dict[str, Concept] = {}
-        self._by_expression: dict[str, str] = {}
+        self._by_expanded: dict[str, str] = {}
 
     def __len__(self) -> int:
         return len(self._concepts)
 
     @property
     def expressions(self) -> dict[str, Expression]:
-        return {key: concept.expression for key, concept in self._concepts.items()}
+        return {
+            concept_id: concept.expression
+            for concept_id, concept in self._concepts.items()
+        }
 
     @property
     def ids(self) -> tuple[str, ...]:
         return tuple(self._concepts)
 
-    def add(self, expression: Expression, score: float, generation: int) -> Concept | None:
-        key = expression.key
-        if key in self._by_expression:
+    def active_ids(self, limit: int) -> tuple[str, ...]:
+        ranked = sorted(
+            self._concepts.values(),
+            key=lambda concept: (
+                concept.validation_score,
+                -concept.generation,
+            ),
+            reverse=True,
+        )
+        return tuple(concept.concept_id for concept in ranked[:limit])
+
+    def score(self, concept_id: str) -> float:
+        return self._concepts[concept_id].validation_score
+
+    def add(
+        self,
+        expression: Expression,
+        expanded: Expression,
+        score: float,
+        generation: int,
+    ) -> Concept | None:
+        if expanded.key in self._by_expanded:
             return None
         concept_id = f"C{len(self._concepts):03d}"
-        concept = Concept(concept_id, expression, score, generation)
+        concept = Concept(
+            concept_id=concept_id,
+            expression=expression,
+            expanded_size=expanded.size,
+            validation_score=score,
+            generation=generation,
+        )
         self._concepts[concept_id] = concept
-        self._by_expression[key] = concept_id
+        self._by_expanded[expanded.key] = concept_id
         return concept
 
     def note_use(self, concept_ids: tuple[str, ...], useful: bool) -> None:
@@ -49,27 +78,22 @@ class ConceptArchive:
                 concept.useful_uses += 1
 
     def lineage(self, concept_ids: tuple[str, ...]) -> set[str]:
-        useful = set(concept_ids)
+        found = set(concept_ids)
         pending = list(concept_ids)
         while pending:
             concept_id = pending.pop()
             for parent in self._concepts[concept_id].expression.concept_ids():
-                if parent not in useful:
-                    useful.add(parent)
+                if parent not in found:
+                    found.add(parent)
                     pending.append(parent)
-        return useful
-
-    def false_expansion_rate(self, useful_concepts: tuple[str, ...] = ()) -> float:
-        if not self._concepts:
-            return 0.0
-        useful = self.lineage(useful_concepts) if useful_concepts else set()
-        return 1.0 - len(useful) / len(self._concepts)
+        return found
 
     def rows(self) -> list[dict[str, object]]:
         return [
             {
                 "concept_id": concept.concept_id,
                 "expression": str(concept.expression),
+                "expanded_size": concept.expanded_size,
                 "validation_score": concept.validation_score,
                 "generation": concept.generation,
                 "proposal_uses": concept.proposal_uses,

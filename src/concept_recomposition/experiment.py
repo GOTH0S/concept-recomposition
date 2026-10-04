@@ -12,13 +12,14 @@ from .search import SearchResult, SearchRunner
 from .worlds import WORLD_NAMES, build_world
 
 ARMS = ("reset", "reify", "sham", "process")
-BUDGETS = (25, 50, 100, 250, 500)
+BUDGETS = (50, 100, 200, 350, 500)
 
 
 def run_cell(world_name: str, seed: int) -> dict[str, SearchResult]:
     world = build_world(world_name, seed=seed)
     budget = max(BUDGETS)
     score_cache: dict[str, tuple[float, float]] = {}
+
     reify = SearchRunner(
         world,
         "reify",
@@ -26,6 +27,7 @@ def run_cell(world_name: str, seed: int) -> dict[str, SearchResult]:
         proposal_budget=budget,
         score_cache=score_cache,
     ).run()
+
     return {
         "reset": SearchRunner(
             world,
@@ -41,7 +43,7 @@ def run_cell(world_name: str, seed: int) -> dict[str, SearchResult]:
             seed=seed,
             proposal_budget=budget,
             score_cache=score_cache,
-            sham_schedule=reify.sham_schedule,
+            promotion_schedule=reify.promotion_schedule,
         ).run(),
         "process": SearchRunner(
             world,
@@ -54,6 +56,9 @@ def run_cell(world_name: str, seed: int) -> dict[str, SearchResult]:
 
 
 def run_sweep(seeds: int) -> tuple[list[dict[str, object]], dict[str, object]]:
+    if seeds < 1:
+        raise ValueError("seeds must be positive")
+
     rows: list[dict[str, object]] = []
     lineage: dict[str, object] = {}
 
@@ -74,34 +79,23 @@ def run_sweep(seeds: int) -> tuple[list[dict[str, object]], dict[str, object]]:
                         not lineage
                         and world_name in {"deep", "reuse", "context"}
                         and arm == "reify"
-                        and result.reached_target
                     ):
-                        target_record = next(
+                        target = next(
                             (
                                 record
                                 for record in result.records
                                 if record.exact_target
+                                and record.concept_refs
                             ),
                             None,
                         )
-                        if target_record is not None and target_record.concept_refs:
-                            observed_by = next(
-                                budget
-                                for budget in BUDGETS
-                                if target_record.proposal <= budget
-                            )
+                        if target is not None:
                             lineage = {
                                 "world": world_name,
-                                "arm": arm,
-                                "observed_by_budget": observed_by,
                                 "seed": seed,
                                 "first_target_proposal": result.first_target_proposal,
                                 "concepts": result.archive.rows(),
-                                "target_record": target_record.__dict__,
-                                "trajectory": [
-                                    record.__dict__
-                                    for record in result.records
-                                ],
+                                "target_record": target.__dict__,
                             }
 
             for budget in BUDGETS:
@@ -127,7 +121,7 @@ def write_csv(rows: list[dict[str, object]], path: Path) -> None:
         writer.writerows(rows)
 
 
-def parse_args() -> argparse.Namespace:
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run the concept recomposition benchmark"
     )
@@ -142,11 +136,8 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("results/lineage.json"),
     )
-    return parser.parse_args()
+    args = parser.parse_args()
 
-
-def main() -> None:
-    args = parse_args()
     rows, lineage = run_sweep(args.seeds)
     write_csv(rows, args.out)
     args.lineage_out.parent.mkdir(parents=True, exist_ok=True)
