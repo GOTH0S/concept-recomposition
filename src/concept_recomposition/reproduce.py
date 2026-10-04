@@ -18,8 +18,22 @@ def main() -> None:
 
     rows, lineage = run_sweep(50)
     write_csv(rows, Path("results/summary.csv"))
+    headline_fields = (
+        "world",
+        "budget",
+        "arm",
+        "seeds",
+        "reach_rate",
+        "mean_first_target",
+        "mean_concepts",
+        "mean_false_expansion",
+        "mean_reused_concepts",
+        "mean_max_target_depth",
+        "mean_selected_heldout",
+        "mean_selection_regret",
+    )
     headline = [
-        row
+        {field: row[field] for field in headline_fields}
         for row in rows
         if (
             row["budget"] == 500
@@ -34,7 +48,7 @@ def main() -> None:
     ) as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=headline[0].keys(),
+            fieldnames=headline_fields,
         )
         writer.writeheader()
         writer.writerows(headline)
