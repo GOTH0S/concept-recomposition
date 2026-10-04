@@ -62,6 +62,7 @@ class SearchRunner:
         promotions_per_generation: int = 4,
         promotion_threshold: float = 0.22,
         split: int = 240,
+        score_cache: dict[str, tuple[float, float]] | None = None,
         sham_schedule: tuple[tuple[int, ...], ...] | None = None,
     ) -> None:
         if proposal_budget < generations:
@@ -77,6 +78,7 @@ class SearchRunner:
         self.promotions_per_generation = promotions_per_generation
         self.promotion_threshold = promotion_threshold
         self.split = split
+        self.score_cache = score_cache if score_cache is not None else {}
         self.sham_schedule = sham_schedule
         self.archive = ConceptArchive()
         self.op_weights = {op: 1.0 for op in OPS}
@@ -84,6 +86,18 @@ class SearchRunner:
 
     def _expanded_key(self, expression: Expression) -> str:
         return expression.expanded(self.archive.expressions).key
+
+    def _score(self, expression: Expression) -> tuple[float, float]:
+        expanded = expression.expanded(self.archive.expressions)
+        if expanded.key not in self.score_cache:
+            self.score_cache[expanded.key] = score_expression(
+                expanded,
+                self.world,
+                {},
+                split=self.split,
+                cache=self.eval_cache,
+            )
+        return self.score_cache[expanded.key]
 
     def _promote(
         self,
@@ -138,9 +152,7 @@ class SearchRunner:
                         break
                 if best is None:
                     continue
-                validation, _ = score_expression(
-                    best, self.world, {}, split=self.split
-                )
+                validation, _ = self._score(best)
                 concept = self.archive.add(best, validation, generation)
                 if concept is not None:
                     promoted_sizes.append(best.size)
@@ -198,13 +210,7 @@ class SearchRunner:
                     proposal += 1
                     continue
                 seen.add(expression.key)
-                validation, heldout = score_expression(
-                    expression,
-                    self.world,
-                    self.archive.expressions,
-                    split=self.split,
-                    cache=self.eval_cache,
-                )
+                validation, heldout = self._score(expression)
                 refs = expression.concept_ids()
                 useful = validation >= self.promotion_threshold
                 if refs:

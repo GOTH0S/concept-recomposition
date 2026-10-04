@@ -13,9 +13,12 @@ def _corr(left: np.ndarray, right: np.ndarray) -> float:
         return 0.0
     x = left[mask]
     y = right[mask]
-    if np.std(x) < 1e-12 or np.std(y) < 1e-12:
+    x = x - x.mean()
+    y = y - y.mean()
+    scale = np.sqrt(np.dot(x, x) * np.dot(y, y))
+    if scale < 1e-12:
         return 0.0
-    return float(abs(np.corrcoef(x, y)[0, 1]))
+    return float(abs(np.dot(x, y) / scale))
 
 
 def score_expression(
