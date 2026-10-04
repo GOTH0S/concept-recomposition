@@ -31,14 +31,15 @@ class Grammar:
         rng: np.random.Generator,
         *,
         concept_ids: Sequence[str] = (),
-        op_weights: Mapping[str, float] | None = None,
+        transition_weights: Mapping[tuple[str, str], float] | None = None,
     ) -> Expression:
         terminals = self._terminals(concept_ids)
         return self._series(
             rng,
             depth=self.max_local_depth,
             terminals=terminals,
-            op_weights=op_weights,
+            transition_weights=transition_weights,
+            parent_op="__root__",
             force_op=True,
         )
 
@@ -52,12 +53,16 @@ class Grammar:
         self,
         rng: np.random.Generator,
         choices: tuple[str, ...],
-        op_weights: Mapping[str, float] | None,
+        parent_op: str,
+        transition_weights: Mapping[tuple[str, str], float] | None,
     ) -> str:
-        if not op_weights:
+        if not transition_weights:
             return str(rng.choice(choices))
         weights = np.array(
-            [max(float(op_weights.get(op, 1.0)), 1e-6) for op in choices],
+            [
+                1.0 + max(float(transition_weights.get((parent_op, op), 0.0)), 0.0)
+                for op in choices
+            ],
             dtype=np.float64,
         )
         return str(rng.choice(choices, p=weights / weights.sum()))
@@ -68,85 +73,52 @@ class Grammar:
         *,
         depth: int,
         terminals: tuple[Expression, ...],
-        op_weights: Mapping[str, float] | None,
+        transition_weights: Mapping[tuple[str, str], float] | None,
+        parent_op: str,
         force_op: bool = False,
     ) -> Expression:
         if depth == 0 or (not force_op and rng.random() < self.terminal_probability):
             return terminals[int(rng.integers(len(terminals)))]
 
         choices = SERIES_OPS if depth >= 2 else tuple(op for op in SERIES_OPS if op != "where")
-        op = self._choose_op(rng, choices, op_weights)
+        op = self._choose_op(rng, choices, parent_op, transition_weights)
         child_depth = depth - 1
 
-        if op in UNARY_SIMPLE:
-            return Expression.unary(
-                op,
-                self._series(
-                    rng,
-                    depth=child_depth,
-                    terminals=terminals,
-                    op_weights=op_weights,
-                ),
+        def child(parent: str) -> Expression:
+            return self._series(
+                rng,
+                depth=child_depth,
+                terminals=terminals,
+                transition_weights=transition_weights,
+                parent_op=parent,
             )
+
+        if op in UNARY_SIMPLE:
+            return Expression.unary(op, child(op))
 
         if op in UNARY_PARAMS:
-            return Expression.unary(
-                op,
-                self._series(
-                    rng,
-                    depth=child_depth,
-                    terminals=terminals,
-                    op_weights=op_weights,
-                ),
-                int(rng.choice(UNARY_PARAMS[op])),
-            )
+            return Expression.unary(op, child(op), int(rng.choice(UNARY_PARAMS[op])))
 
         if op in BINARY:
-            return Expression.binary(
-                op,
-                self._series(
-                    rng,
-                    depth=child_depth,
-                    terminals=terminals,
-                    op_weights=op_weights,
-                ),
-                self._series(
-                    rng,
-                    depth=child_depth,
-                    terminals=terminals,
-                    op_weights=op_weights,
-                ),
-            )
+            return Expression.binary(op, child(op), child(op))
 
         condition = Expression.compare(
             self._series(
                 rng,
                 depth=depth - 2,
                 terminals=terminals,
-                op_weights=op_weights,
+                transition_weights=transition_weights,
+                parent_op="gt",
             ),
             self._series(
                 rng,
                 depth=depth - 2,
                 terminals=terminals,
-                op_weights=op_weights,
+                transition_weights=transition_weights,
+                parent_op="gt",
             ),
         )
-        return Expression.where(
-            condition,
-            self._series(
-                rng,
-                depth=child_depth,
-                terminals=terminals,
-                op_weights=op_weights,
-            ),
-            self._series(
-                rng,
-                depth=child_depth,
-                terminals=terminals,
-                op_weights=op_weights,
-            ),
-        )
+        return Expression.where(condition, child("where"), child("where"))
 
 
 def proposal_pool(
@@ -197,27 +169,6 @@ def concept_pool(
         for expression in proposal_pool(raw_variables, concept_ids)
         if ids.intersection(expression.concept_ids())
     )
-
-
-def sample_pool(
-    rng: np.random.Generator,
-    pool: Sequence[Expression],
-    count: int,
-    op_weights: Mapping[str, float] | None = None,
-) -> tuple[Expression, ...]:
-    if count <= 0 or not pool:
-        return ()
-    if count >= len(pool):
-        return tuple(pool)
-    probabilities = None
-    if op_weights:
-        weights = np.array(
-            [max(float(op_weights.get(expression.op, 1.0)), 1e-6) for expression in pool],
-            dtype=np.float64,
-        )
-        probabilities = weights / weights.sum()
-    indices = rng.choice(len(pool), size=count, replace=False, p=probabilities)
-    return tuple(pool[int(index)] for index in indices)
 
 
 def operator_counts(expression: Expression) -> dict[str, int]:

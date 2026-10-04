@@ -9,6 +9,7 @@ from .archive import ConceptArchive
 from .evaluator import score_expression
 from .expression import Expression
 from .grammar import Grammar
+from .proposer import MotifModel
 from .worlds import World
 
 Arm = Literal["reset", "reify", "process", "sham"]
@@ -66,8 +67,6 @@ class SearchRunner:
         promotion_schedule: tuple[tuple[PromotionShape, ...], ...] | None = None,
         score_cache: dict[str, tuple[float, float]] | None = None,
     ) -> None:
-        if arm == "process":
-            raise NotImplementedError("PROCESS is added after REIFY and SHAM")
         if arm == "sham" and promotion_schedule is None:
             raise ValueError("sham requires a REIFY promotion schedule")
         if proposal_budget < 1 or generation_size < 1:
@@ -84,6 +83,7 @@ class SearchRunner:
         self.reference_schedule = promotion_schedule
         self.grammar = Grammar(tuple(world.data), max_local_depth=local_depth)
         self.archive = ConceptArchive()
+        self.motifs = MotifModel()
         self.score_cache = score_cache if score_cache is not None else {}
         self.eval_cache: dict[str, np.ndarray] = {}
 
@@ -118,9 +118,9 @@ class SearchRunner:
             )
             if concept is None:
                 continue
-            promoted.append(
-                PromotionShape(concept.expanded_size, concept.expanded_depth)
-            )
+            promoted.append(PromotionShape(concept.expanded_size, concept.expanded_depth))
+            if self.arm == "process":
+                self.motifs.observe(expression, validation)
             if len(promoted) == self.promotions_per_generation:
                 break
         return tuple(promoted)
@@ -166,9 +166,7 @@ class SearchRunner:
                 proposal,
             )
             if concept is not None:
-                promoted.append(
-                    PromotionShape(concept.expanded_size, concept.expanded_depth)
-                )
+                promoted.append(PromotionShape(concept.expanded_size, concept.expanded_depth))
         return tuple(promoted)
 
     def run(self) -> SearchResult:
@@ -192,15 +190,14 @@ class SearchRunner:
             generation_candidates: list[
                 tuple[Expression, Expression, float, int, bool]
             ] = []
-            remaining = min(
-                self.generation_size,
-                self.proposal_budget - proposal,
-            )
+            remaining = min(self.generation_size, self.proposal_budget - proposal)
+            transition_weights = self.motifs.weights if self.arm == "process" else None
 
             for _ in range(remaining):
                 expression = self.grammar.sample(
                     self.rng,
                     concept_ids=concept_ids,
+                    transition_weights=transition_weights,
                 )
                 expanded = expression.expanded(self.archive.expressions)
                 validation, heldout = self._score(expanded)
@@ -249,27 +246,17 @@ class SearchRunner:
                     (expression, expanded, validation, proposal, novel)
                 )
 
-            if self.arm == "reify":
-                promoted = self._promote_reify(
-                    generation_candidates,
-                    generation,
-                )
+            if self.arm in {"reify", "process"}:
+                promoted = self._promote_reify(generation_candidates, generation)
             elif self.arm == "sham":
-                promoted = self._promote_sham(
-                    generation_candidates,
-                    generation,
-                )
+                promoted = self._promote_sham(generation_candidates, generation)
             else:
                 promoted = ()
 
             promotion_schedule.append(promoted)
             generation_ends.append(proposal)
 
-        useful = (
-            self.archive.lineage(tuple(target_concepts))
-            if target_concepts
-            else set()
-        )
+        useful = self.archive.lineage(tuple(target_concepts)) if target_concepts else set()
         return SearchResult(
             arm=self.arm,
             records=records,

@@ -18,14 +18,12 @@ def test_reset_is_deterministic() -> None:
     world = build_world("deep", seed=7)
     left = SearchRunner(world, "reset", seed=9, proposal_budget=100).run()
     right = SearchRunner(world, "reset", seed=9, proposal_budget=100).run()
-
     assert left.records == right.records
 
 
 def test_deep_target_is_outside_reset_local_depth() -> None:
     world = build_world("deep", seed=1)
     assert min(target.depth for target in world.targets) > 2
-
     result = SearchRunner(
         world,
         "reset",
@@ -39,34 +37,27 @@ def test_deep_target_is_outside_reset_local_depth() -> None:
     assert not result.archive.ids
 
 
-def test_reify_and_sham_spend_the_same_budget() -> None:
+def test_reify_sham_and_process_spend_the_same_budget() -> None:
     world = build_world("deep", seed=4)
-    reify = SearchRunner(
-        world,
-        "reify",
-        seed=4,
-        proposal_budget=300,
-    ).run()
-    sham = SearchRunner(
-        world,
-        "sham",
-        seed=4,
-        proposal_budget=300,
-        promotion_schedule=reify.promotion_schedule,
-    ).run()
+    reify = SearchRunner(world, "reify", seed=4, proposal_budget=300).run()
+    runs = [
+        reify,
+        SearchRunner(
+            world,
+            "sham",
+            seed=4,
+            proposal_budget=300,
+            promotion_schedule=reify.promotion_schedule,
+        ).run(),
+        SearchRunner(world, "process", seed=4, proposal_budget=300).run(),
+    ]
 
-    assert len(reify.records) == len(sham.records) == 300
-    assert len(reify.promotion_schedule) == len(sham.promotion_schedule)
+    assert {len(result.records) for result in runs} == {300}
 
 
 def test_sham_matches_reify_promotion_count() -> None:
     world = build_world("deep", seed=2)
-    reify = SearchRunner(
-        world,
-        "reify",
-        seed=2,
-        proposal_budget=300,
-    ).run()
+    reify = SearchRunner(world, "reify", seed=2, proposal_budget=300).run()
     sham = SearchRunner(
         world,
         "sham",
@@ -91,6 +82,15 @@ def test_reification_can_expand_beyond_local_depth() -> None:
 
     assert result.archive.ids
     assert max(record.expanded_depth for record in result.records) > 2
+
+
+def test_process_is_deterministic() -> None:
+    world = build_world("reuse", seed=6)
+    left = SearchRunner(world, "process", seed=6, proposal_budget=300).run()
+    right = SearchRunner(world, "process", seed=6, proposal_budget=300).run()
+
+    assert left.records == right.records
+    assert left.promotion_schedule == right.promotion_schedule
 
 
 def test_decoy_has_no_exact_target() -> None:
