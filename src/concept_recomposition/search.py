@@ -73,6 +73,7 @@ class SearchRunner:
         self.sham_schedule = sham_schedule
         self.archive = ConceptArchive()
         self.op_weights = {op: 1.0 for op in OPS}
+        self.eval_cache: dict[str, np.ndarray] = {}
 
     def _expanded_key(self, expression: Expression) -> str:
         return expression.expanded(self.archive.expressions).key
@@ -192,6 +193,7 @@ class SearchRunner:
                     expression,
                     self.world,
                     self.archive.expressions,
+                    cache=self.eval_cache,
                 )
                 refs = expression.concept_ids()
                 useful = validation >= self.promotion_threshold
