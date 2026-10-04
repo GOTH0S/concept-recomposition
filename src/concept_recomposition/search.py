@@ -170,6 +170,7 @@ class SearchRunner:
                 expression,
                 expanded,
                 score.promotion,
+                score.confirmation,
                 generation,
             )
             if concept is None:
@@ -216,6 +217,7 @@ class SearchRunner:
                     expression,
                     expanded,
                     score.promotion,
+                    score.confirmation,
                     generation,
                 )
                 if concept is not None:
@@ -249,8 +251,8 @@ class SearchRunner:
                 expanded = expression.expanded(self.archive.expressions)
                 refs = expression.concept_ids()
                 parent_best = max(
-                    (self.archive.score(ref) for ref in refs),
-                    default=score.promotion,
+                    (self.archive.confirmation(ref) for ref in refs),
+                    default=score.confirmation,
                 )
                 gain = score.confirmation - parent_best if refs else 0.0
                 exact = expanded.key in self.world.target_keys
