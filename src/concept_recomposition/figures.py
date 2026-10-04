@@ -161,7 +161,7 @@ def process_comparison() -> None:
     ax.set_xlabel("proposal budget")
     ax.set_ylabel("target reach rate")
     ax.set_ylim(-0.01, 0.35)
-    ax.set_title("Learning proposal weights gives a modest lift")
+    ax.set_title("PROCESS does not improve pooled reach")
     ax.legend(frameon=False)
     fig.tight_layout()
     FIGURES.mkdir(exist_ok=True)

@@ -230,10 +230,7 @@ class SearchRunner:
                 if refs:
                     self.archive.note_use(
                         refs,
-                        useful=(
-                            self.promotion_threshold is None
-                            or validation >= self.promotion_threshold
-                        ),
+                        useful=gain > 0,
                     )
                 if exact:
                     distinct_targets.add(expanded.key)
