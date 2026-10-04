@@ -28,6 +28,7 @@ def test_market_summary_counts_stable_depth() -> None:
         useful_concepts=(),
         best_validation=0.08,
         best_heldout=0.04,
+        generation_ends=(1,),
         sham_schedule=(),
     )
     summary = _summary([result])

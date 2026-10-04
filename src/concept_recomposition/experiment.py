@@ -13,8 +13,9 @@ ARMS = ("reset", "reify", "sham", "process")
 BUDGETS = (25, 50, 100, 250, 500)
 
 
-def run_cell(world_name: str, budget: int, seed: int) -> dict[str, SearchResult]:
+def run_cell(world_name: str, seed: int) -> dict[str, SearchResult]:
     world = build_world(world_name, seed=seed)
+    budget = max(BUDGETS)
     reify = SearchRunner(world, "reify", seed=seed, proposal_budget=budget).run()
     return {
         "reset": SearchRunner(
@@ -37,36 +38,43 @@ def run_cell(world_name: str, budget: int, seed: int) -> dict[str, SearchResult]
 def run_sweep(seeds: int) -> tuple[list[dict[str, object]], dict[str, object]]:
     rows: list[dict[str, object]] = []
     lineage: dict[str, object] = {}
+
     for world_name in WORLD_NAMES:
-        for budget in BUDGETS:
-            buckets: dict[str, list[SearchResult]] = {arm: [] for arm in ARMS}
-            for seed in range(seeds):
-                cell = run_cell(world_name, budget, seed)
-                for arm, result in cell.items():
-                    buckets[arm].append(result)
-                    if (
-                        not lineage
-                        and world_name in {"deep", "reuse", "context"}
-                        and arm == "reify"
-                        and result.reached_target
-                    ):
-                        target_record = next(
-                            (record for record in result.records if record.exact_target),
-                            None,
+        buckets: dict[str, list[SearchResult]] = {arm: [] for arm in ARMS}
+        for seed in range(seeds):
+            cell = run_cell(world_name, seed)
+            for arm, result in cell.items():
+                buckets[arm].append(result)
+                if (
+                    not lineage
+                    and world_name in {"deep", "reuse", "context"}
+                    and arm == "reify"
+                    and result.reached_target
+                ):
+                    target_record = next(
+                        (record for record in result.records if record.exact_target),
+                        None,
+                    )
+                    if target_record is not None and target_record.concept_refs:
+                        observed_by = next(
+                            budget
+                            for budget in BUDGETS
+                            if target_record.proposal <= budget
                         )
-                        if target_record is not None and target_record.concept_refs:
-                            lineage = {
-                                "world": world_name,
-                                "arm": arm,
-                                "budget": budget,
-                                "seed": seed,
-                                "first_target_proposal": result.first_target_proposal,
-                                "concepts": result.archive.rows(),
-                                "target_record": target_record.__dict__,
-                                "trajectory": [
-                                    record.__dict__ for record in result.records
-                                ],
-                            }
+                        lineage = {
+                            "world": world_name,
+                            "arm": arm,
+                            "observed_by_budget": observed_by,
+                            "seed": seed,
+                            "first_target_proposal": result.first_target_proposal,
+                            "concepts": result.archive.rows(),
+                            "target_record": target_record.__dict__,
+                            "trajectory": [
+                                record.__dict__ for record in result.records
+                            ],
+                        }
+
+        for budget in BUDGETS:
             for arm in ARMS:
                 rows.append(
                     {
@@ -74,9 +82,10 @@ def run_sweep(seeds: int) -> tuple[list[dict[str, object]], dict[str, object]]:
                         "budget": budget,
                         "arm": arm,
                         "seeds": seeds,
-                        **summarize(buckets[arm]),
+                        **summarize(buckets[arm], budget),
                     }
                 )
+
     return rows, lineage
 
 
@@ -110,7 +119,7 @@ def main() -> None:
     write_csv(rows, args.out)
     args.lineage_out.parent.mkdir(parents=True, exist_ok=True)
     args.lineage_out.write_text(
-        json.dumps(lineage, indent=2) + "\\n", encoding="utf-8"
+        json.dumps(lineage, indent=2) + "\n", encoding="utf-8"
     )
 
 

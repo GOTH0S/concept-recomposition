@@ -41,6 +41,7 @@ class SearchResult:
     useful_concepts: tuple[str, ...]
     best_validation: float
     best_heldout: float
+    generation_ends: tuple[int, ...]
     sham_schedule: tuple[tuple[int, ...], ...]
 
     @property
@@ -155,6 +156,7 @@ class SearchRunner:
         best_validation = -np.inf
         best_heldout = -np.inf
         promotion_schedule: list[tuple[int, ...]] = []
+        generation_ends: list[int] = []
 
         raw_variables = tuple(self.world.data)
         base, remainder = divmod(self.proposal_budget, self.generations)
@@ -239,6 +241,7 @@ class SearchRunner:
                 proposal += 1
 
             promotion_schedule.append(self._promote(generation_candidates, generation))
+            generation_ends.append(proposal)
 
         return SearchResult(
             arm=self.arm,
@@ -250,5 +253,6 @@ class SearchRunner:
             useful_concepts=tuple(sorted(self.archive.lineage(tuple(target_concepts)))),
             best_validation=float(best_validation),
             best_heldout=float(best_heldout),
+            generation_ends=tuple(generation_ends),
             sham_schedule=tuple(promotion_schedule),
         )
