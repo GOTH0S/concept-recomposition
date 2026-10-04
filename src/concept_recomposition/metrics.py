@@ -94,6 +94,7 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
             0.0 if not available else 1.0 - len(useful & available) / len(available)
         ),
         "relevant_promotions": float(len(relevant)),
+        "relevant_promotion": float(bool(relevant)),
         "promotion_precision": (
             0.0 if not concepts else len(relevant) / len(concepts)
         ),
@@ -150,6 +151,7 @@ def summarize(
         "mean_concepts": mean("concepts"),
         "mean_unused_promotion_rate": mean("unused_promotion_rate"),
         "mean_relevant_promotions": mean("relevant_promotions"),
+        "relevant_promotion_rate": mean("relevant_promotion"),
         "mean_promotion_precision": mean("promotion_precision"),
         "mean_reused_concepts": mean("reused_concepts"),
         "mean_shared_target_concepts": mean("shared_target_concepts"),
