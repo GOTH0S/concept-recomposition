@@ -27,11 +27,10 @@ def _target_lineages(
             or record.target_key is None
         ):
             continue
-        lineages.append(
-            (
-                record.target_key,
-                result.archive.lineage(record.concept_refs),
-            )
+        lineage = result.archive.lineage(record.concept_refs)
+        lineages.extend(
+            (target_key, lineage)
+            for target_key in record.matched_targets
         )
     return lineages
 
@@ -70,7 +69,12 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
         if str(row["expanded_key"]) in result.target_subexpressions
     ]
 
-    distinct = len({record.target_key for record in matched})
+    matched_keys = {
+        target_key
+        for record in matched
+        for target_key in record.matched_targets
+    }
+    distinct = len(matched_keys)
     reached = (
         result.required_targets > 0
         and distinct >= result.required_targets
@@ -83,8 +87,12 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
         ) if matched else float("nan"),
         "first_success": float(
             max(
-                min(record.proposal for record in matched if record.target_key == key)
-                for key in {record.target_key for record in matched}
+                min(
+                    record.proposal
+                    for record in matched
+                    if key in record.matched_targets
+                )
+                for key in matched_keys
             )
         ) if reached else float("nan"),
         "distinct_targets": float(distinct),
