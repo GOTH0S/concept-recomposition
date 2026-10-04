@@ -92,6 +92,8 @@ def lineage() -> None:
     payload = json.loads(
         (RESULTS / "lineage.json").read_text(encoding="utf-8")
     )
+    if not payload:
+        return
     target = payload["target_record"]
     concept_ids = target["concept_refs"]
     concepts = {row["concept_id"]: row for row in payload["concepts"]}
