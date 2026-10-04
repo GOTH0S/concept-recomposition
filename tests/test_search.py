@@ -102,3 +102,22 @@ def test_decoy_has_no_exact_target() -> None:
     ).run()
 
     assert not result.distinct_targets
+
+
+def test_intermediate_diagnostics_do_not_change_search() -> None:
+    world = build_world("deep", seed=7)
+    result = SearchRunner(
+        world,
+        "reify",
+        seed=7,
+        proposal_budget=400,
+    ).run()
+
+    intermediate_keys = {expression.key for expression in world.intermediates}
+    flagged = {
+        record.expanded_key
+        for record in result.records
+        if record.exact_intermediate
+    }
+    assert flagged.issubset(intermediate_keys)
+    assert set(result.promoted_intermediates).issubset(intermediate_keys)

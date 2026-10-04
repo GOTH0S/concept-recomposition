@@ -19,6 +19,7 @@ def _available_concepts(result: SearchResult, budget: int) -> set[str]:
 def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
     records = [record for record in result.records if record.proposal <= budget]
     exact = [record for record in records if record.exact_target]
+    intermediate = [record for record in records if record.exact_intermediate]
     available = _available_concepts(result, budget)
 
     target_refs: set[str] = set()
@@ -37,9 +38,20 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
         for row in result.archive.rows()
         if str(row["concept_id"]) in available
     ]
+    promoted_intermediate = any(
+        str(row["expanded_key"]) in result.promoted_intermediates
+        for row in concept_rows
+    )
 
     return {
         "reached_target": float(bool(exact)),
+        "reached_intermediate": float(bool(intermediate)),
+        "promoted_intermediate": float(promoted_intermediate),
+        "first_intermediate": (
+            float(min(record.proposal for record in intermediate))
+            if intermediate
+            else float("nan")
+        ),
         "first_target": float(
             min(record.proposal for record in exact)
         ) if exact else float("nan"),
@@ -87,12 +99,23 @@ def summarize(
         raise ValueError("results cannot be empty")
 
     first = np.array([value["first_target"] for value in values], dtype=float)
+    first_intermediate = np.array(
+        [value["first_intermediate"] for value in values],
+        dtype=float,
+    )
 
     def mean(field: str) -> float:
         return float(np.mean([value[field] for value in values]))
 
     return {
         "reach_rate": mean("reached_target"),
+        "intermediate_reach_rate": mean("reached_intermediate"),
+        "intermediate_promotion_rate": mean("promoted_intermediate"),
+        "mean_first_intermediate": (
+            float(np.nanmean(first_intermediate))
+            if np.isfinite(first_intermediate).any()
+            else float("nan")
+        ),
         "mean_first_target": (
             float(np.nanmean(first))
             if np.isfinite(first).any()

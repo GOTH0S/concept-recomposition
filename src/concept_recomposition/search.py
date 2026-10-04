@@ -37,6 +37,7 @@ class CandidateRecord:
     target_key: str | None
     concept_refs: tuple[str, ...]
     novel: bool = True
+    exact_intermediate: bool = False
 
 
 @dataclass
@@ -49,6 +50,7 @@ class SearchResult:
     useful_concepts: tuple[str, ...]
     generation_ends: tuple[int, ...]
     promotion_schedule: tuple[tuple[PromotionShape, ...], ...]
+    promoted_intermediates: tuple[str, ...] = ()
 
 
 class SearchRunner:
@@ -177,6 +179,7 @@ class SearchRunner:
         generation_ends: list[int] = []
         promotion_schedule: list[tuple[PromotionShape, ...]] = []
         seen: set[str] = set()
+        intermediate_keys = {expression.key for expression in self.world.intermediates}
 
         generations = (self.proposal_budget + self.generation_size - 1) // self.generation_size
         proposal = 0
@@ -208,6 +211,7 @@ class SearchRunner:
                 )
                 gain = validation - parent_best if refs else 0.0
                 exact = expanded.key in self.world.target_keys
+                exact_intermediate = expanded.key in intermediate_keys
                 novel = expanded.key not in seen
                 seen.add(expanded.key)
 
@@ -240,6 +244,7 @@ class SearchRunner:
                         target_key=expanded.key if exact else None,
                         concept_refs=refs,
                         novel=novel,
+                        exact_intermediate=exact_intermediate,
                     )
                 )
                 generation_candidates.append(
@@ -257,6 +262,13 @@ class SearchRunner:
             generation_ends.append(proposal)
 
         useful = self.archive.lineage(tuple(target_concepts)) if target_concepts else set()
+        promoted_intermediates = tuple(
+            sorted(
+                str(row["expanded_key"])
+                for row in self.archive.rows()
+                if str(row["expanded_key"]) in intermediate_keys
+            )
+        )
         return SearchResult(
             arm=self.arm,
             records=records,
@@ -266,4 +278,5 @@ class SearchRunner:
             useful_concepts=tuple(sorted(useful)),
             generation_ends=tuple(generation_ends),
             promotion_schedule=tuple(promotion_schedule),
+            promoted_intermediates=promoted_intermediates,
         )
