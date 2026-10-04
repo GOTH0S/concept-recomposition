@@ -6,7 +6,7 @@ from typing import Literal
 import numpy as np
 
 from .archive import ConceptArchive
-from .evaluator import EvidenceScore, affine_equivalent, score_expression
+from .evaluator import EvidenceScore, affine_equivalent, score_expression, target_matches
 from .expression import Expression
 from .grammar import OPS, concept_pool, operator_counts, proposal_pool, sample_pool
 from .operators import evaluate
@@ -31,6 +31,7 @@ class CandidateRecord:
     confirmation_gain: float
     exact_target: bool
     target_key: str | None
+    matched_targets: tuple[str, ...]
     concept_refs: tuple[str, ...]
 
 
@@ -256,12 +257,18 @@ class SearchRunner:
                 )
                 gain = score.confirmation - parent_best if refs else 0.0
                 exact = expanded.key in self.world.target_keys
+                matched = target_matches(
+                    expanded,
+                    self.world,
+                    {},
+                    self.eval_cache,
+                )
 
                 proposal += 1
                 if refs:
                     self.archive.note_use(refs, useful=gain > 0)
-                if exact:
-                    distinct_targets.add(expanded.key)
+                if matched:
+                    distinct_targets.update(matched)
                     target_concepts.update(refs)
                     if first_target is None:
                         first_target = proposal
@@ -286,7 +293,8 @@ class SearchRunner:
                         heldout_score=score.heldout,
                         confirmation_gain=gain,
                         exact_target=exact,
-                        target_key=expanded.key if exact else None,
+                        target_key=matched[0] if matched else None,
+                        matched_targets=matched,
                         concept_refs=refs,
                     )
                 )
