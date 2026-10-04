@@ -9,6 +9,7 @@ from .expression import Expression
 class Concept:
     concept_id: str
     expression: Expression
+    expanded_key: str
     expanded_size: int
     promotion_score: float
     generation: int
@@ -62,6 +63,7 @@ class ConceptArchive:
         concept = Concept(
             concept_id=concept_id,
             expression=expression,
+            expanded_key=expanded.key,
             expanded_size=expanded.size,
             promotion_score=score,
             generation=generation,
@@ -93,6 +95,7 @@ class ConceptArchive:
             {
                 "concept_id": concept.concept_id,
                 "expression": str(concept.expression),
+                "expanded_key": concept.expanded_key,
                 "expanded_size": concept.expanded_size,
                 "promotion_score": concept.promotion_score,
                 "generation": concept.generation,
