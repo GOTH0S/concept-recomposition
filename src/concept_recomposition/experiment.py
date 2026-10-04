@@ -110,8 +110,7 @@ def main() -> None:
     write_csv(rows, args.out)
     args.lineage_out.parent.mkdir(parents=True, exist_ok=True)
     args.lineage_out.write_text(
-        json.dumps(lineage, indent=2) + "
-", encoding="utf-8"
+        json.dumps(lineage, indent=2) + "\\n", encoding="utf-8"
     )
 
 
