@@ -99,3 +99,17 @@ def test_reify_promotes_at_most_one_concept_per_generation() -> None:
         proposal_budget=500,
     ).run()
     assert len(result.archive) <= 10
+
+
+def test_hidden_target_itself_is_not_an_intermediate() -> None:
+    world = build_world("deep", seed=5)
+    result = SearchRunner(
+        world,
+        "reify",
+        seed=5,
+        proposal_budget=100,
+    ).run()
+    target = world.targets[0]
+    inner = target.args[0]
+    assert target.key not in result.target_subexpressions
+    assert inner.key in result.target_subexpressions
