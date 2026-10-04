@@ -142,3 +142,15 @@ def test_all_arms_start_from_the_same_proposals() -> None:
         for result in runs
     ]
     assert all(keys == proposal_keys[0] for keys in proposal_keys[1:])
+
+
+
+def test_archive_margin_limits_decorative_growth() -> None:
+    result = SearchRunner(
+        build_world("deep", seed=5),
+        "reify",
+        seed=5,
+        proposal_budget=500,
+        promotion_margin=1.0,
+    ).run()
+    assert len(result.archive) <= 1
