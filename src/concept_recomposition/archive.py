@@ -48,11 +48,22 @@ class ConceptArchive:
             if useful:
                 concept.useful_uses += 1
 
-    def false_expansion_rate(self) -> float:
+    def lineage(self, concept_ids: tuple[str, ...]) -> set[str]:
+        useful = set(concept_ids)
+        pending = list(concept_ids)
+        while pending:
+            concept_id = pending.pop()
+            for parent in self._concepts[concept_id].expression.concept_ids():
+                if parent not in useful:
+                    useful.add(parent)
+                    pending.append(parent)
+        return useful
+
+    def false_expansion_rate(self, useful_concepts: tuple[str, ...] = ()) -> float:
         if not self._concepts:
             return 0.0
-        dead = sum(concept.useful_uses == 0 for concept in self._concepts.values())
-        return dead / len(self._concepts)
+        useful = self.lineage(useful_concepts) if useful_concepts else set()
+        return 1.0 - len(useful) / len(self._concepts)
 
     def rows(self) -> list[dict[str, object]]:
         return [
