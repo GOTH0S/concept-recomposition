@@ -12,6 +12,7 @@ class Concept:
     expanded_key: str
     expanded_size: int
     promotion_score: float
+    confirmation_score: float
     generation: int
     proposal_uses: int = 0
     useful_uses: int = 0
@@ -50,11 +51,15 @@ class ConceptArchive:
     def score(self, concept_id: str) -> float:
         return self._concepts[concept_id].promotion_score
 
+    def confirmation(self, concept_id: str) -> float:
+        return self._concepts[concept_id].confirmation_score
+
     def add(
         self,
         expression: Expression,
         expanded: Expression,
         score: float,
+        confirmation: float,
         generation: int,
     ) -> Concept | None:
         if expanded.key in self._by_expanded:
@@ -66,6 +71,7 @@ class ConceptArchive:
             expanded_key=expanded.key,
             expanded_size=expanded.size,
             promotion_score=score,
+            confirmation_score=confirmation,
             generation=generation,
         )
         self._concepts[concept_id] = concept
@@ -98,6 +104,7 @@ class ConceptArchive:
                 "expanded_key": concept.expanded_key,
                 "expanded_size": concept.expanded_size,
                 "promotion_score": concept.promotion_score,
+                "confirmation_score": concept.confirmation_score,
                 "generation": concept.generation,
                 "proposal_uses": concept.proposal_uses,
                 "useful_uses": concept.useful_uses,
