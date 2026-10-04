@@ -65,6 +65,7 @@ class SearchRunner:
         active_concepts: int = 4,
         promotions_per_generation: int = 1,
         promotion_threshold: float = 0.20,
+        promotion_margin: float = 0.01,
         discovery_end: int = 180,
         heldout_start: int = 270,
         score_cache: dict[str, EvidenceScore] | None = None,
@@ -85,6 +86,7 @@ class SearchRunner:
         self.active_concepts = active_concepts
         self.promotions_per_generation = promotions_per_generation
         self.promotion_threshold = promotion_threshold
+        self.promotion_margin = promotion_margin
         self.discovery_end = discovery_end
         self.heldout_start = heldout_start
         self.score_cache = score_cache if score_cache is not None else {}
@@ -163,8 +165,17 @@ class SearchRunner:
             reverse=True,
         )
         sizes: list[int] = []
+        current_best = max(
+            (self.archive.score(concept_id) for concept_id in self.archive.ids),
+            default=float("-inf"),
+        )
         for expression, expanded, score in ranked:
             if score.promotion < self.promotion_threshold:
+                break
+            if (
+                current_best > float("-inf")
+                and score.promotion < current_best + self.promotion_margin
+            ):
                 break
             if not self._novel(expanded):
                 continue
