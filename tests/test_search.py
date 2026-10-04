@@ -114,3 +114,31 @@ def test_hidden_target_itself_is_not_an_intermediate() -> None:
     inner = target.args[0]
     assert target.key not in result.target_subexpressions
     assert inner.key in result.target_subexpressions
+
+
+
+def test_all_arms_start_from_the_same_proposals() -> None:
+    world = build_world("deep", seed=8)
+    reify = SearchRunner(
+        world,
+        "reify",
+        seed=8,
+        proposal_budget=50,
+    ).run()
+    runs = [
+        SearchRunner(world, "reset", seed=8, proposal_budget=50).run(),
+        reify,
+        SearchRunner(
+            world,
+            "sham",
+            seed=8,
+            proposal_budget=50,
+            promotion_schedule=reify.promotion_schedule,
+        ).run(),
+        SearchRunner(world, "process", seed=8, proposal_budget=50).run(),
+    ]
+    proposal_keys = [
+        [record.expanded_key for record in result.records]
+        for result in runs
+    ]
+    assert all(keys == proposal_keys[0] for keys in proposal_keys[1:])
