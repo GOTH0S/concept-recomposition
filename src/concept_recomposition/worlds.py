@@ -79,13 +79,13 @@ def build_world(
     elif name == "reuse":
         z = Expression.unary("mean", x3, 5)
         targets = (
-            Expression.binary("add", z, x3),
-            Expression.binary("sub", z, x1),
+            Expression.unary("mean", z, 3),
+            Expression.unary("lag", z, 1),
         )
     elif name == "context":
         data["x5"] = data["x5"] + 1.0
         z = Expression.unary("mean", x2, 5)
-        targets = (Expression.where(x5, z, x4),)
+        targets = (Expression.where(x5, z, x2),)
     elif name == "decoy":
         targets = ()
     else:
