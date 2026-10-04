@@ -1,67 +1,85 @@
 # concept-recomposition
 
-Can a search process make new ideas reachable by turning useful intermediate expressions into reusable building blocks?
+Can saving a useful intermediate result make a search reach expressions it otherwise cannot build?
 
-Each proposal may apply **one operation** to the vocabulary currently available.
+The search starts with five raw variables, `x1..x5`. Each proposal may add one operation: a lag, difference, rolling mean/std, rank/sign/abs, arithmetic operation, min/max or conditional.
 
-```text
-RESET:   x1..x5  -> one-step expressions
-REIFY:   x1..x5  -> useful expression C000 -> later proposals may use C000
-```
-
-That matters when the hidden target is two steps away. For example:
+That makes reachability easy to see. A fixed search can propose:
 
 ```text
-target = mean(mean(x2, 5), 3)
+mean[5](x2)
 ```
 
-RESET cannot propose that expression in one move. If REIFY first discovers `mean(x2, 5)` and names it `C000`, then `mean(C000, 3)` is a legal next proposal.
+but not this two-step target in one proposal:
 
-Four matched-budget searches compete:
+```text
+mean[3](mean[5](x2))
+```
 
-- **RESET** — vocabulary never changes.
-- **REIFY** — the best derived expressions can become new terminals.
-- **SHAM** — gets the same number of new terminals as REIFY, but from low-scoring expressions.
-- **PROCESS** — REIFY plus a simple bias toward operators used by previously promoted expressions.
+A recomposing search can save `mean[5](x2)` as `C001`, then later propose `mean[3](C001)`.
 
-The search has 500 proposal attempts and is repeated over 50 seeds.
+## Experiment
 
-![Reachability by proposal budget](figures/reachability.svg)
+Four searches get the same 500-proposal budget.
+
+- **RESET** always searches from the original variables.
+- **REIFY** may save one good expression per generation as a reusable terminal.
+- **SHAM** gets the same number and approximate size of new terminals as REIFY, but saves low-scoring expressions.
+- **PROCESS** is REIFY plus a small bias towards operators that appeared in previously saved expressions.
+
+An expression is saved only if it clears the same threshold on two separate development slices. The final held-out slice is never used for promotion.
+
+There are five synthetic problems:
+
+| world | what has to happen |
+|---|---|
+| shallow | find a one-step target |
+| deep | save an intermediate, then use it to build a two-step target |
+| reuse | use the same intermediate to reach two different targets |
+| context | use an intermediate inside a conditional expression |
+| decoy | there is no hidden target |
+
+Each result below is over 50 deterministic seeds.
+
+![Target reachability](figures/reachability.svg)
 
 At 500 proposals:
 
-| hidden world | RESET | SHAM | REIFY | PROCESS |
+| world | RESET | SHAM | REIFY | PROCESS |
 |---|---:|---:|---:|---:|
-| shallow target | 84% | 44% | 44% | 24% |
-| deep composition | 0% | 0% | **16%** | 8% |
-| shared intermediate | 0% | 0% | **18%** | **18%** |
-| conditional target | 0% | 0% | 8% | **16%** |
-| decoy / no target | 0% | 0% | 0% | 0% |
+| shallow | **84%** | 44% | 44% | 44% |
+| deep | 0% | 0% | 12% | **28%** |
+| reuse | 0% | 0% | 2% | **6%** |
+| context | 0% | 0% | 16% | **18%** |
 
-So recomposition changes what the search can reach, but it is not free. On the shallow problem, spending proposals on the expanded vocabulary hurts. In the decoy world, REIFY and PROCESS each promote 40 concepts and every one is false expansion.
+Reification changes what is reachable: RESET and SHAM never solve the three problems that require useful composition.
 
-PROCESS does not improve pooled reach over REIFY: both reach **14%** across the three non-trivial worlds at 500 proposals.
+It also costs search budget. On the shallow problem, where nothing needs to be saved, RESET wins easily.
 
-A representative successful run is simple:
+The hard part is not just finding the right building block. In the deep world, REIFY saves the correct intermediate in 44% of runs but finishes the target in 12%; PROCESS does so in 50% and finishes in 28%. In the reuse world, both save the shared intermediate in 42% of runs, but only 2% and 6% respectively reach both downstream targets.
 
-![Example reified lineage](figures/lineage.svg)
+The decoy also matters. REIFY promotes 0.54 expressions per run on average and PROCESS 0.50: low, but not zero.
 
-In seed 5 of the deep world, `mean[5](x2)` is promoted as `C000` after the first generation. Proposal 81 then tests `mean[3](C000)`, which expands exactly to the hidden target. RESET never has that expression in its one-step proposal set.
+## One run
+
+![Example lineage](figures/lineage.svg)
+
+In seed 20 of the deep world, `mean[5](x2)` is saved as `C001`. Proposal 121 then tries `mean[3](C001)`, which expands exactly to the hidden target.
+
+PROCESS has the higher hit rate in this small benchmark, but it does not consistently find successful targets sooner. It is a simple proposal bias, not evidence of self-improving search.
 
 ## Old-market check
 
-The same machinery is run on stale daily data for SPY, QQQ, TLT, GLD and EEM, ending in 2019.
+The same machinery is run on stale daily data for SPY, QQQ, TLT, GLD and EEM from 2008–2019. This is not an alpha test; it asks whether saved expressions change the kind of structures the search reaches.
 
-This is not an alpha test. The question is whether recomposition changes the set of empirically stable expressions reached under the same budget.
-
-| arm | stable expressions | max stable depth | reused concepts | best held-out corr. |
+| search | confirmed + held-out-positive expressions | max depth | reused concepts | best held-out corr. |
 |---|---:|---:|---:|---:|
-| RESET | 75.4 | 2.0 | 0.0 | 0.1004 |
-| REIFY | 147.3 | 9.7 | 22.6 | 0.1029 |
-| SHAM | 49.5 | 7.1 | 12.7 | 0.1003 |
-| PROCESS | 136.0 | 10.2 | 23.8 | 0.1019 |
+| RESET | 10.5 | 2.0 | 0.0 | **0.1004** |
+| REIFY | **75.9** | 9.3 | **8.8** | 0.0977 |
+| SHAM | 5.6 | 3.8 | 6.4 | 0.0968 |
+| PROCESS | 51.3 | 7.6 | 8.3 | 0.0965 |
 
-Recomposition reaches much deeper structures and reuses them. Held-out predictive quality is essentially unchanged.
+Recomposition produces deeper, reused structures. It does **not** improve the best held-out predictive correlation in this exercise.
 
 ## Run
 
@@ -70,8 +88,6 @@ python -m pip install -e ".[dev]"
 python -m concept_recomposition.reproduce
 ```
 
-Add `--market` to rerun the stale-market appendix. The public price snapshot is pinned and hash-checked before use.
+Add `--market` to rerun the stale-market check. The public price snapshot is pinned and hash-checked before use.
 
-Compact results are in `results/`; the full benchmark table is regenerated by the command above.
-
-Python 3.11+. Apache-2.0.
+Compact outputs are in `results/`. Python 3.11+. Apache-2.0.

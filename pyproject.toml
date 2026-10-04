@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "concept-recomposition"
 version = "0.1.0"
-description = "Matched-budget experiments in mutable hypothesis search"
+description = "Search experiments with reusable intermediate expressions"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = ["numpy>=2.0"]

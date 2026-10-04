@@ -1,31 +1,36 @@
 {
   "world": "deep",
-  "seed": 5,
-  "first_target_proposal": 81,
+  "seed": 20,
+  "first_target_proposal": 121,
   "concepts": [
     {
-      "concept_id": "C000",
+      "concept_id": "C001",
       "expression": "mean[5](x2)",
+      "expanded_key": "mean[5](raw:x2)",
       "expanded_size": 2,
-      "validation_score": 0.9480103028938811,
-      "generation": 0,
-      "proposal_uses": 28,
-      "useful_uses": 28
+      "promotion_score": 0.9561359229236542,
+      "generation": 1,
+      "proposal_uses": 49,
+      "useful_uses": 4
     }
   ],
   "target_record": {
-    "proposal": 81,
-    "generation": 1,
-    "expression": "mean[3](C000)",
+    "proposal": 121,
+    "generation": 2,
+    "expression": "mean[3](C001)",
     "expanded_key": "mean[3](mean[5](raw:x2))",
     "expanded_size": 3,
     "expanded_depth": 3,
     "root_op": "mean",
-    "validation_score": 0.9962875346467004,
-    "heldout_score": 0.9970747984597694,
-    "validation_gain": 0.04827723175281928,
+    "discovery_score": 0.9972504523428849,
+    "confirmation_score": 0.9967663679854284,
+    "promotion_score": 0.9967663679854284,
+    "heldout_score": 0.9945890960584087,
+    "confirmation_gain": 0.040630445061774156,
     "exact_target": true,
     "target_key": "mean[3](mean[5](raw:x2))",
-    "concept_refs": ["C000"]
+    "concept_refs": [
+      "C001"
+    ]
   }
 }
