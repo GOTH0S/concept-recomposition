@@ -89,3 +89,13 @@ def test_reuse_world_requires_both_downstream_targets() -> None:
     world = build_world("reuse", seed=0)
     assert len(world.targets) == 2
     assert world.required_targets == 2
+
+
+def test_reify_promotes_at_most_one_concept_per_generation() -> None:
+    result = SearchRunner(
+        build_world("deep", seed=5),
+        "reify",
+        seed=5,
+        proposal_budget=500,
+    ).run()
+    assert len(result.archive) <= 10
