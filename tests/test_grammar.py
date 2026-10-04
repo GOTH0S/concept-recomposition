@@ -1,4 +1,4 @@
-from concept_recomposition.expression import Expression, ValueType
+from concept_recomposition.expression import ValueType
 from concept_recomposition.grammar import concept_pool, proposal_pool
 from concept_recomposition.worlds import build_world
 
@@ -21,7 +21,7 @@ def test_deep_target_becomes_local_after_reification() -> None:
     base = proposal_pool(tuple(world.data))
     assert target.key not in {expression.expanded({}).key for expression in base}
 
-    intermediate = Expression.unary("mean", Expression.raw("x2"), 5)
+    intermediate = world.intermediates[0]
     expanded = {
         expression.expanded({"C000": intermediate}).key
         for expression in proposal_pool(tuple(world.data), ("C000",))
