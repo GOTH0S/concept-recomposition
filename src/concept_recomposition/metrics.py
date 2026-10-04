@@ -24,7 +24,6 @@ def _target_lineages(
     for record in result.records:
         if (
             record.proposal > budget
-            or not record.exact_target
             or record.target_key is None
         ):
             continue
@@ -39,7 +38,7 @@ def _target_lineages(
 
 def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
     records = [record for record in result.records if record.proposal <= budget]
-    exact = [record for record in records if record.exact_target]
+    matched = [record for record in records if record.target_key is not None]
     available = _available_concepts(result, budget)
     target_lineages = _target_lineages(result, budget)
     useful = (
@@ -71,7 +70,7 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
         if str(row["expanded_key"]) in result.target_subexpressions
     ]
 
-    distinct = len({record.target_key for record in exact})
+    distinct = len({record.target_key for record in matched})
     reached = (
         result.required_targets > 0
         and distinct >= result.required_targets
@@ -80,12 +79,12 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
     return {
         "reached_target": float(reached),
         "first_target": float(
-            min(record.proposal for record in exact)
-        ) if exact else float("nan"),
+            min(record.proposal for record in matched)
+        ) if matched else float("nan"),
         "first_success": float(
             max(
-                min(record.proposal for record in exact if record.target_key == key)
-                for key in {record.target_key for record in exact}
+                min(record.proposal for record in matched if record.target_key == key)
+                for key in {record.target_key for record in matched}
             )
         ) if reached else float("nan"),
         "distinct_targets": float(distinct),
@@ -106,7 +105,7 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
             sum(int(row["useful_uses"]) for row in concepts)
         ),
         "max_target_depth": float(
-            max((record.expanded_depth for record in exact), default=0)
+            max((record.expanded_depth for record in matched), default=0)
         ),
         "mean_positive_gain": float(
             np.mean(
