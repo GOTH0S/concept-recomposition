@@ -8,6 +8,8 @@ def test_market_summary_counts_stable_depth() -> None:
         proposal=1,
         generation=0,
         expression="x1",
+        local_size=1,
+        local_depth=1,
         expanded_key="raw:x1",
         expanded_size=1,
         expanded_depth=3,
