@@ -175,9 +175,6 @@ class SearchRunner:
             if concept is None:
                 continue
             sizes.append(expanded.size)
-            if self.arm == "process":
-                for op, count in operator_counts(expression).items():
-                    self.op_weights[op] += count * score.promotion
             if len(sizes) == self.promotions_per_generation:
                 break
         return tuple(sizes)
@@ -266,7 +263,15 @@ class SearchRunner:
 
                 proposal += 1
                 if refs:
-                    self.archive.note_use(refs, useful=gain > 0)
+                    useful = gain > 0
+                    self.archive.note_use(refs, useful=useful)
+                    if self.arm == "process" and useful:
+                        self.op_weights[expression.op] += max(gain, 0.01)
+                        for ref in set(refs):
+                            for op, count in operator_counts(
+                                self.archive.expressions[ref]
+                            ).items():
+                                self.op_weights[op] += count * max(gain, 0.01)
                 if matched:
                     distinct_targets.update(matched)
                     target_concepts.update(refs)
