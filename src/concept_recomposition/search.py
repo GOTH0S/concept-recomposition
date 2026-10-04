@@ -35,6 +35,7 @@ class SearchResult:
     first_target_proposal: int | None
     target_hits: int
     distinct_targets: tuple[str, ...]
+    useful_concepts: tuple[str, ...]
     best_validation: float
     best_heldout: float
     sham_schedule: tuple[tuple[int, ...], ...]
@@ -145,6 +146,7 @@ class SearchRunner:
         first_target: int | None = None
         target_hits = 0
         distinct_targets: set[str] = set()
+        target_concepts: set[str] = set()
         best_validation = -np.inf
         best_heldout = -np.inf
         promotion_schedule: list[tuple[int, ...]] = []
@@ -205,6 +207,7 @@ class SearchRunner:
                 if exact:
                     target_hits += 1
                     distinct_targets.add(expanded_key)
+                    target_concepts.update(refs)
                     if first_target is None:
                         first_target = proposal + 1
                 best_validation = max(best_validation, validation)
@@ -234,6 +237,7 @@ class SearchRunner:
             first_target_proposal=first_target,
             target_hits=target_hits,
             distinct_targets=tuple(sorted(distinct_targets)),
+            useful_concepts=tuple(sorted(self.archive.lineage(tuple(target_concepts)))),
             best_validation=float(best_validation),
             best_heldout=float(best_heldout),
             sham_schedule=tuple(promotion_schedule),
