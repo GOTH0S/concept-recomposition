@@ -61,6 +61,12 @@ class Expression:
             ids.extend(arg.concept_ids())
         return tuple(ids)
 
+    def subexpression_keys(self) -> set[str]:
+        keys = {self.key}
+        for arg in self.args:
+            keys.update(arg.subexpression_keys())
+        return keys
+
     def expanded(self, concepts: Mapping[str, Expression]) -> Expression:
         if self.op == "concept":
             if self.value not in concepts:
