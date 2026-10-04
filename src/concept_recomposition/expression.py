@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 COMMUTATIVE = {"add", "mul", "min", "max"}
 
@@ -9,30 +9,30 @@ COMMUTATIVE = {"add", "mul", "min", "max"}
 @dataclass(frozen=True)
 class Expression:
     op: str
-    args: tuple["Expression", ...] = ()
+    args: tuple[Expression, ...] = ()
     value: str | None = None
     param: int | None = None
 
     @classmethod
-    def raw(cls, name: str) -> "Expression":
+    def raw(cls, name: str) -> Expression:
         return cls("raw", value=name)
 
     @classmethod
-    def concept(cls, name: str) -> "Expression":
+    def concept(cls, name: str) -> Expression:
         return cls("concept", value=name)
 
     @classmethod
-    def unary(cls, op: str, arg: "Expression", param: int | None = None) -> "Expression":
+    def unary(cls, op: str, arg: Expression, param: int | None = None) -> Expression:
         return cls(op, (arg,), param=param)
 
     @classmethod
-    def binary(cls, op: str, left: "Expression", right: "Expression") -> "Expression":
+    def binary(cls, op: str, left: Expression, right: Expression) -> Expression:
         return cls(op, (left, right))
 
     @classmethod
     def where(
-        cls, condition: "Expression", left: "Expression", right: "Expression"
-    ) -> "Expression":
+        cls, condition: Expression, left: Expression, right: Expression
+    ) -> Expression:
         return cls("where", (condition, left, right))
 
     @property
@@ -61,7 +61,7 @@ class Expression:
             ids.extend(arg.concept_ids())
         return tuple(ids)
 
-    def expanded(self, concepts: Mapping[str, "Expression"]) -> "Expression":
+    def expanded(self, concepts: Mapping[str, Expression]) -> Expression:
         if self.op == "concept":
             if self.value not in concepts:
                 raise KeyError(f"unknown concept: {self.value}")
