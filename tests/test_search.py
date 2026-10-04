@@ -28,7 +28,7 @@ def test_sham_matches_promotion_count_when_candidates_exist() -> None:
         proposal_budget=500,
         sham_schedule=reify.sham_schedule,
     ).run()
-    assert len(sham.archive) <= sum(
+    assert len(sham.archive) == sum(
         len(generation) for generation in reify.sham_schedule
     )
 
