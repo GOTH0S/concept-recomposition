@@ -66,7 +66,7 @@ def build_world(
 ) -> World:
     data = _raw_data(seed, n)
     rng = np.random.default_rng(seed + 10_000)
-    x1, x2, x3, x4, x5 = (
+    x1, x2, x3, _, x5 = (
         Expression.raw(f"x{i}")
         for i in range(1, 6)
     )
