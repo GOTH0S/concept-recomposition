@@ -23,8 +23,9 @@ def score_expression(
     world: World,
     concepts: dict[str, Expression],
     split: int = 240,
+    cache: dict[str, np.ndarray] | None = None,
 ) -> tuple[float, float]:
-    values = evaluate(expression, world.data, concepts)
+    values = evaluate(expression, world.data, concepts, cache)
     validation = max(_corr(values[:split], target[:split]) for target in world.outcomes)
     heldout = max(_corr(values[split:], target[split:]) for target in world.outcomes)
     return validation, heldout
