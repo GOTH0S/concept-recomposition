@@ -27,7 +27,7 @@ Four searches get the same 500 proposal attempts.
 - **SHAM** — gets the same number of extra operands, with similar size, but from poor expressions.
 - **PROCESS** — REIFY plus a small proposal bias learned only when a saved concept is later reused successfully.
 
-Promotion uses two development slices. The final held-out slice is not used to decide what gets saved.
+Promotion uses two development slices. The final held-out slice is not used to decide what gets saved. For evaluation, affine-equivalent expressions count as the same hidden mechanism.
 
 Five synthetic problems test different cases:
 
