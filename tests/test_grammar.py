@@ -1,10 +1,12 @@
+from concept_recomposition.expression import Expression, ValueType
 from concept_recomposition.grammar import concept_pool, proposal_pool
+from concept_recomposition.worlds import build_world
 
 
-def test_base_proposals_are_one_step_from_raws() -> None:
+def test_proposal_pool_only_returns_series() -> None:
     pool = proposal_pool(("x1", "x2"))
     assert pool
-    assert max(expression.depth for expression in pool) <= 2
+    assert all(expression.value_type is ValueType.SERIES for expression in pool)
 
 
 def test_concept_pool_requires_a_concept_reference() -> None:
@@ -14,14 +16,10 @@ def test_concept_pool_requires_a_concept_reference() -> None:
 
 
 def test_deep_target_becomes_local_after_reification() -> None:
-    from concept_recomposition.expression import Expression
-    from concept_recomposition.worlds import build_world
-
     world = build_world("deep", seed=0)
     target = world.targets[0]
-
     base = proposal_pool(tuple(world.data))
-    assert target.key not in {expression.key for expression in base}
+    assert target.key not in {expression.expanded({}).key for expression in base}
 
     intermediate = Expression.unary("mean", Expression.raw("x2"), 5)
     expanded = {

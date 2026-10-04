@@ -7,7 +7,7 @@ import numpy as np
 from .expression import Expression
 from .operators import BINARY, UNARY_PARAMS, UNARY_SIMPLE
 
-OPS = tuple(UNARY_SIMPLE) + tuple(UNARY_PARAMS) + tuple(BINARY) + ("where",)
+OPS = tuple(UNARY_SIMPLE) + tuple(UNARY_PARAMS) + tuple(BINARY) + ("gt", "where")
 
 
 def proposal_pool(
@@ -20,24 +20,30 @@ def proposal_pool(
 
     for terminal in terminals:
         for op in UNARY_SIMPLE:
-            expr = Expression.unary(op, terminal)
-            unique[expr.key] = expr
+            expression = Expression.unary(op, terminal)
+            unique[expression.key] = expression
         for op, params in UNARY_PARAMS.items():
             for param in params:
-                expr = Expression.unary(op, terminal, param)
-                unique[expr.key] = expr
+                expression = Expression.unary(op, terminal, param)
+                unique[expression.key] = expression
 
     for left in terminals:
         for right in terminals:
             for op in BINARY:
-                expr = Expression.binary(op, left, right)
-                unique[expr.key] = expr
+                expression = Expression.binary(op, left, right)
+                unique[expression.key] = expression
 
-    for condition in raws:
+    conditions = tuple(
+        Expression.compare(left, right)
+        for left in raws
+        for right in raws
+        if left.key != right.key
+    )
+    for condition in conditions:
         for left in terminals:
             for right in terminals:
-                expr = Expression.where(condition, left, right)
-                unique[expr.key] = expr
+                expression = Expression.where(condition, left, right)
+                unique[expression.key] = expression
 
     return tuple(unique[key] for key in sorted(unique))
 
@@ -67,27 +73,22 @@ def sample_pool(
 
     if op_weights:
         weights = np.array(
-            [max(float(op_weights.get(expr.op, 1.0)), 1e-6) for expr in pool],
+            [max(float(op_weights.get(expression.op, 1.0)), 1e-6) for expression in pool],
             dtype=np.float64,
         )
         probabilities = weights / weights.sum()
     else:
         probabilities = None
 
-    indices = rng.choice(
-        len(pool),
-        size=count,
-        replace=False,
-        p=probabilities,
-    )
+    indices = rng.choice(len(pool), size=count, replace=False, p=probabilities)
     return tuple(pool[int(index)] for index in indices)
 
 
-def operator_counts(expr: Expression) -> dict[str, int]:
+def operator_counts(expression: Expression) -> dict[str, int]:
     counts: dict[str, int] = {}
-    if expr.op not in {"raw", "concept"}:
-        counts[expr.op] = counts.get(expr.op, 0) + 1
-    for arg in expr.args:
+    if expression.op not in {"raw", "concept"}:
+        counts[expression.op] = counts.get(expression.op, 0) + 1
+    for arg in expression.args:
         for op, count in operator_counts(arg).items():
             counts[op] = counts.get(op, 0) + count
     return counts
