@@ -70,7 +70,11 @@ def sample_pool(
             [max(float(op_weights.get(expr.op, 1.0)), 1e-6) for expr in pool],
             dtype=np.float64,
         )
-        probabilities = weights / weights.sum()
+        probabilities = (
+            None
+            if np.allclose(weights, weights[0])
+            else weights / weights.sum()
+        )
     else:
         probabilities = None
 
