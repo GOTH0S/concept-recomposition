@@ -107,6 +107,15 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
         "max_target_depth": float(
             max((record.expanded_depth for record in matched), default=0)
         ),
+        "max_target_compression": float(
+            max(
+                (
+                    record.expanded_size - record.local_size
+                    for record in matched
+                ),
+                default=0,
+            )
+        ),
         "mean_positive_gain": float(
             np.mean(
                 [
@@ -156,6 +165,7 @@ def summarize(
         "mean_shared_target_concepts": mean("shared_target_concepts"),
         "mean_useful_reuses": mean("useful_reuses"),
         "mean_max_target_depth": mean("max_target_depth"),
+        "mean_max_target_compression": mean("max_target_compression"),
         "mean_positive_gain": mean("mean_positive_gain"),
         "mean_best_promotion": mean("best_promotion"),
         "mean_selected_heldout": mean("selected_heldout"),
