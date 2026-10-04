@@ -47,7 +47,7 @@ def _with_noise(
 def build_world(name: str, seed: int = 0, n: int = 360) -> World:
     data = _raw_data(seed, n)
     rng = np.random.default_rng(seed + 10_000)
-    x1, x2, x3, x4, x5 = (Expression.raw(f"x{i}") for i in range(1, 6))
+    x1, x2, x3, _, x5 = (Expression.raw(f"x{i}") for i in range(1, 6))
 
     if name == "shallow":
         targets = (Expression.unary("diff", x1, 5),)
