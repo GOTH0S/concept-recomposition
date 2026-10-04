@@ -1,6 +1,5 @@
 import numpy as np
 
-from concept_recomposition.expression import Expression
 from concept_recomposition.grammar import concept_pool, proposal_pool
 from concept_recomposition.worlds import WORLD_NAMES, build_world
 
