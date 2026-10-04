@@ -24,5 +24,6 @@ jobs:
           name: benchmark-results
           path: |
             results/summary.csv
+            results/headline.csv
             results/lineage.json
             figures/*.svg
