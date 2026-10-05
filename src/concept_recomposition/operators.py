@@ -15,7 +15,7 @@ UNARY_PARAMS = {
     "mean": (3, 5, 10, 20),
     "std": (5, 10, 20),
 }
-UNARY_SIMPLE = ("abs", "sign", "rank")
+UNARY_SIMPLE = ("abs", "sign")
 BINARY = ("add", "sub", "mul", "ratio", "min", "max")
 TERNARY = ("where",)
 
@@ -50,18 +50,6 @@ def _rolling(values: FloatArray, window: int, std: bool) -> FloatArray:
     return out
 
 
-def _rank(values: FloatArray) -> FloatArray:
-    out = np.full_like(values, np.nan)
-    mask = np.isfinite(values)
-    if mask.sum() < 2:
-        return out
-    order = np.argsort(values[mask])
-    ranks = np.empty(mask.sum(), dtype=np.float64)
-    ranks[order] = np.linspace(-1.0, 1.0, mask.sum())
-    out[mask] = ranks
-    return out
-
-
 def evaluate(
     expr: Expression,
     data: Mapping[str, FloatArray],
@@ -82,8 +70,6 @@ def evaluate(
         out = np.abs(evaluate(expr.args[0], data, concepts, cache))
     elif expr.op == "sign":
         out = np.sign(evaluate(expr.args[0], data, concepts, cache))
-    elif expr.op == "rank":
-        out = _rank(evaluate(expr.args[0], data, concepts, cache))
     elif expr.op == "lag":
         out = _shift(evaluate(expr.args[0], data, concepts, cache), int(expr.param))
     elif expr.op == "diff":

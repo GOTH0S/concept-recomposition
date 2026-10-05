@@ -6,6 +6,7 @@ on:
       - "src/concept_recomposition/market_appendix.py"
       - "src/concept_recomposition/search.py"
       - "src/concept_recomposition/grammar.py"
+      - "src/concept_recomposition/operators.py"
       - ".github/workflows/market-appendix.yml"
   workflow_dispatch:
 
@@ -20,9 +21,9 @@ jobs:
           python-version: "3.14"
       - run: python -m pip install -e ".[dev]"
       - run: python -m concept_recomposition.market_appendix
-      - name: Check frozen market artifact
-        run: git diff --ignore-space-at-eol --exit-code -- results/market_appendix.csv
       - uses: actions/upload-artifact@v4
         with:
           name: market-appendix-results
           path: results/market_appendix.csv
+      - name: Check frozen market artifact
+        run: git diff --ignore-space-at-eol --exit-code -- results/market_appendix.csv

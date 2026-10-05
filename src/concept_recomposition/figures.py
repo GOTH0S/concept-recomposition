@@ -11,10 +11,19 @@ RESULTS = Path("results")
 FIGURES = Path("figures")
 COLORS = {"reset": "0.25", "reify": "C0", "sham": "C1", "process": "C2"}
 
+plt.rcParams["svg.hashsalt"] = "concept-recomposition"
+
 
 def _rows() -> list[dict[str, str]]:
     with (RESULTS / "summary.csv").open(encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def _save(fig, path: Path) -> None:
+    fig.tight_layout()
+    FIGURES.mkdir(exist_ok=True)
+    fig.savefig(path, metadata={"Date": None})
+    plt.close(fig)
 
 
 def reachability() -> None:
@@ -45,11 +54,7 @@ def reachability() -> None:
     ax.set_ylim(-0.03, 1.03)
     ax.set_title("Reusing discovered concepts changes what search can reach")
     ax.legend(frameon=False)
-    fig.tight_layout()
-    FIGURES.mkdir(exist_ok=True)
-    fig.savefig(FIGURES / "reachability.svg")
-    plt.close(fig)
-
+    _save(fig, FIGURES / "reachability.svg")
 
 
 def lineage() -> None:
@@ -91,11 +96,7 @@ def lineage() -> None:
                 arrowprops={"arrowstyle": "->"},
             )
     ax.set_title(f"Example lineage: {payload['world']} world")
-    fig.tight_layout()
-    FIGURES.mkdir(exist_ok=True)
-    fig.savefig(FIGURES / "lineage.svg")
-    plt.close(fig)
-
+    _save(fig, FIGURES / "lineage.svg")
 
 
 def process_comparison() -> None:
@@ -126,10 +127,8 @@ def process_comparison() -> None:
     ax.set_ylim(-0.01, 0.35)
     ax.set_title("Adaptive proposal bias changes target reach")
     ax.legend(frameon=False)
-    fig.tight_layout()
-    FIGURES.mkdir(exist_ok=True)
-    fig.savefig(FIGURES / "process.svg")
-    plt.close(fig)
+    _save(fig, FIGURES / "process.svg")
+
 
 def render_all() -> None:
     reachability()
