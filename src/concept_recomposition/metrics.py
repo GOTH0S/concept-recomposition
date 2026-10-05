@@ -154,12 +154,12 @@ def summarize(
     first = np.array([value["first_success"] for value in values], dtype=float)
 
     def mean(field: str) -> float:
-        return float(np.mean([value[field] for value in values]))
+        return round(float(np.mean([value[field] for value in values])), 12)
 
     return {
         "reach_rate": mean("reached_target"),
         "mean_first_success": (
-            float(np.nanmean(first))
+            round(float(np.nanmean(first)), 12)
             if np.isfinite(first).any()
             else float("nan")
         ),
