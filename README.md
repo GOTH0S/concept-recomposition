@@ -47,32 +47,32 @@ At 500 proposals:
 
 | problem | RESET | SHAM | REIFY | PROCESS |
 |---|---:|---:|---:|---:|
-| shallow | **84%** | 44% | 56% | 66% |
-| deep | 0% | 0% | **54%** | 44% |
-| reuse | 0% | 0% | **10%** | 2% |
-| context | 0% | 4% | 12% | **14%** |
+| shallow | **80%** | 48% | 56% | 68% |
+| deep | 0% | 0% | **46%** | 28% |
+| reuse | 0% | 0% | 6% | **14%** |
+| context | 0% | 4% | **12%** | 8% |
 
 The important comparison is not REIFY versus RESET alone. SHAM gets the same structural privilege and still reaches almost none of the recursive targets.
 
 REIFY also has a cost. On the shallow problem, where nothing needs to be saved, RESET is better.
 
-PROCESS is not an upgrade here. It reaches some deep targets earlier, but final pooled reach is lower than REIFY, and on the reuse problem it falls from 10% to 2%.
+PROCESS is not an upgrade here. It beats REIFY on the reuse problem, but loses on deep and context; pooled final reach is 16.7% versus 21.3% for REIFY.
 
 ## One successful run
 
 ![Example lineage](figures/lineage.svg)
 
-In seed 2 of the deep problem:
+In seed 0 of the deep problem:
 
 ```text
-mean[5](x2)          -> saved as C001
-mean[3](C001)        -> local size 2
+mean[5](x2)          -> saved as C000
+mean[3](C000)        -> local size 2
 mean[3](mean[5](x2)) -> expanded size 3; hidden target
 ```
 
-The target appears at proposal 369. RESET never gets the inner expression as an atomic operand, so that composition is outside its one-step proposal set.
+The target appears at proposal 249. RESET never gets the inner expression as an atomic operand, so that composition is outside its one-step proposal set.
 
-The archive stays small: REIFY saves about 3 concepts per run in the deep problem and 0.16 in the decoy problem.
+The archive stays small: REIFY saves about 3.3 concepts per run in the deep problem and 0.12 in the decoy problem.
 
 ![REIFY versus PROCESS](figures/process.svg)
 
@@ -82,10 +82,10 @@ The same search machinery is run on stale daily data for SPY, QQQ, TLT, GLD and 
 
 | search | stable expressions | max depth | reused concepts | best held-out corr. |
 |---|---:|---:|---:|---:|
-| RESET | 10.5 | 2.0 | 0.0 | **0.1004** |
-| REIFY | 43.5 | **3.3** | 1.4 | 0.0945 |
-| SHAM | 5.6 | 2.6 | 1.4 | 0.0983 |
-| PROCESS | **45.6** | **3.3** | **1.6** | 0.0951 |
+| RESET | 9.7 | 2.0 | 0.0 | **0.1004** |
+| REIFY | 39.0 | 3.7 | 2.0 | 0.0917 |
+| SHAM | 8.9 | 3.1 | 2.0 | 0.0974 |
+| PROCESS | **39.1** | **3.8** | **2.1** | 0.0977 |
 
 Recomposition reaches more and deeper stable expressions. It does not improve the best held-out correlation.
 
