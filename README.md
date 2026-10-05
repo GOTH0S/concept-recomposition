@@ -89,6 +89,12 @@ The same search machinery is run on stale daily data for SPY, QQQ, TLT, GLD and 
 
 Recomposition reaches more and deeper stable expressions. It does not improve the best held-out correlation.
 
+## Public scope
+
+This is a public research benchmark, not an alpha claim. The market appendix uses deliberately stale, generic data and is included only to test whether recomposition changes the structures reached.
+
+Related: [selector-limitation](https://github.com/GOTH0S/selector-limitation), a separate experiment on selection regret as hypothesis search expands.
+
 ## Run
 
 ```bash
