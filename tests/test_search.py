@@ -82,6 +82,7 @@ def test_reified_proposals_can_exceed_local_depth() -> None:
         seed=1,
         proposal_budget=500,
     ).run()
+    assert all(record.local_depth <= 2 for record in result.records)
     assert max(record.expanded_depth for record in result.records) > 2
 
 
@@ -113,3 +114,43 @@ def test_hidden_target_itself_is_not_an_intermediate() -> None:
     inner = target.args[0]
     assert target.key not in result.target_subexpressions
     assert inner.key in result.target_subexpressions
+
+
+
+def test_all_arms_start_from_the_same_proposals() -> None:
+    world = build_world("deep", seed=8)
+    reify = SearchRunner(
+        world,
+        "reify",
+        seed=8,
+        proposal_budget=50,
+    ).run()
+    runs = [
+        SearchRunner(world, "reset", seed=8, proposal_budget=50).run(),
+        reify,
+        SearchRunner(
+            world,
+            "sham",
+            seed=8,
+            proposal_budget=50,
+            promotion_schedule=reify.promotion_schedule,
+        ).run(),
+        SearchRunner(world, "process", seed=8, proposal_budget=50).run(),
+    ]
+    proposal_keys = [
+        [record.expanded_key for record in result.records]
+        for result in runs
+    ]
+    assert all(keys == proposal_keys[0] for keys in proposal_keys[1:])
+
+
+
+def test_archive_margin_limits_decorative_growth() -> None:
+    result = SearchRunner(
+        build_world("deep", seed=5),
+        "reify",
+        seed=5,
+        proposal_budget=500,
+        promotion_margin=1.0,
+    ).run()
+    assert len(result.archive) <= 1

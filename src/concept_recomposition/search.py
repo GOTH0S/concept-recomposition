@@ -6,9 +6,10 @@ from typing import Literal
 import numpy as np
 
 from .archive import ConceptArchive
-from .evaluator import EvidenceScore, score_expression
+from .evaluator import EvidenceScore, affine_equivalent, score_expression, target_matches
 from .expression import Expression
 from .grammar import OPS, concept_pool, operator_counts, proposal_pool, sample_pool
+from .operators import evaluate
 from .worlds import World
 
 Arm = Literal["reset", "reify", "process", "sham"]
@@ -19,6 +20,8 @@ class CandidateRecord:
     proposal: int
     generation: int
     expression: str
+    local_size: int
+    local_depth: int
     expanded_key: str
     expanded_size: int
     expanded_depth: int
@@ -30,6 +33,7 @@ class CandidateRecord:
     confirmation_gain: float
     exact_target: bool
     target_key: str | None
+    matched_targets: tuple[str, ...]
     concept_refs: tuple[str, ...]
 
 
@@ -61,6 +65,7 @@ class SearchRunner:
         active_concepts: int = 4,
         promotions_per_generation: int = 1,
         promotion_threshold: float = 0.20,
+        promotion_margin: float = 0.01,
         discovery_end: int = 180,
         heldout_start: int = 270,
         score_cache: dict[str, EvidenceScore] | None = None,
@@ -81,6 +86,7 @@ class SearchRunner:
         self.active_concepts = active_concepts
         self.promotions_per_generation = promotions_per_generation
         self.promotion_threshold = promotion_threshold
+        self.promotion_margin = promotion_margin
         self.discovery_end = discovery_end
         self.heldout_start = heldout_start
         self.score_cache = score_cache if score_cache is not None else {}
@@ -131,6 +137,23 @@ class SearchRunner:
             )
         )
 
+    def _novel(self, expanded: Expression) -> bool:
+        values = evaluate(expanded, self.world.data, {}, self.eval_cache)[: self.heldout_start]
+        for raw in self.world.data.values():
+            if affine_equivalent(values, raw[: self.heldout_start]):
+                return False
+        for expression in self.archive.expressions.values():
+            known = expression.expanded(self.archive.expressions)
+            known_values = evaluate(
+                known,
+                self.world.data,
+                {},
+                self.eval_cache,
+            )[: self.heldout_start]
+            if affine_equivalent(values, known_values):
+                return False
+        return True
+
     def _promote_scored(
         self,
         candidates: list[tuple[Expression, Expression, EvidenceScore]],
@@ -142,21 +165,30 @@ class SearchRunner:
             reverse=True,
         )
         sizes: list[int] = []
+        current_best = max(
+            (self.archive.score(concept_id) for concept_id in self.archive.ids),
+            default=float("-inf"),
+        )
         for expression, expanded, score in ranked:
             if score.promotion < self.promotion_threshold:
                 break
+            if (
+                current_best > float("-inf")
+                and score.promotion < current_best + self.promotion_margin
+            ):
+                break
+            if not self._novel(expanded):
+                continue
             concept = self.archive.add(
                 expression,
                 expanded,
                 score.promotion,
+                score.confirmation,
                 generation,
             )
             if concept is None:
                 continue
             sizes.append(expanded.size)
-            if self.arm == "process":
-                for op, count in operator_counts(expression).items():
-                    self.op_weights[op] += count * score.promotion
             if len(sizes) == self.promotions_per_generation:
                 break
         return tuple(sizes)
@@ -187,10 +219,18 @@ class SearchRunner:
                     ),
                 )
                 used.add(expanded.key)
+                if not self._novel(expanded):
+                    choices = [
+                        item
+                        for item in choices
+                        if item[1].key not in used
+                    ]
+                    continue
                 concept = self.archive.add(
                     expression,
                     expanded,
                     score.promotion,
+                    score.confirmation,
                     generation,
                 )
                 if concept is not None:
@@ -224,17 +264,31 @@ class SearchRunner:
                 expanded = expression.expanded(self.archive.expressions)
                 refs = expression.concept_ids()
                 parent_best = max(
-                    (self.archive.score(ref) for ref in refs),
-                    default=score.promotion,
+                    (self.archive.confirmation(ref) for ref in refs),
+                    default=score.confirmation,
                 )
                 gain = score.confirmation - parent_best if refs else 0.0
                 exact = expanded.key in self.world.target_keys
+                matched = target_matches(
+                    expanded,
+                    self.world,
+                    {},
+                    self.eval_cache,
+                )
 
                 proposal += 1
                 if refs:
-                    self.archive.note_use(refs, useful=gain > 0)
-                if exact:
-                    distinct_targets.add(expanded.key)
+                    useful = gain > 0
+                    self.archive.note_use(refs, useful=useful)
+                    if self.arm == "process" and useful:
+                        self.op_weights[expression.op] += max(gain, 0.01)
+                        for ref in set(refs):
+                            for op, count in operator_counts(
+                                self.archive.expressions[ref]
+                            ).items():
+                                self.op_weights[op] += count * max(gain, 0.01)
+                if matched:
+                    distinct_targets.update(matched)
                     target_concepts.update(refs)
                     if first_target is None:
                         first_target = proposal
@@ -249,6 +303,8 @@ class SearchRunner:
                         proposal=proposal,
                         generation=generation,
                         expression=str(expression),
+                        local_size=expression.size,
+                        local_depth=expression.depth,
                         expanded_key=expanded.key,
                         expanded_size=expanded.size,
                         expanded_depth=expanded.depth,
@@ -259,7 +315,8 @@ class SearchRunner:
                         heldout_score=score.heldout,
                         confirmation_gain=gain,
                         exact_target=exact,
-                        target_key=expanded.key if exact else None,
+                        target_key=matched[0] if matched else None,
+                        matched_targets=matched,
                         concept_refs=refs,
                     )
                 )

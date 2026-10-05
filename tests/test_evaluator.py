@@ -31,3 +31,19 @@ def test_promotion_score_requires_both_development_slices() -> None:
     )
     assert score.promotion == min(score.discovery, score.confirmation)
     assert np.isfinite(score.promotion)
+
+
+def test_affine_equivalence_accepts_sign_and_scale_changes() -> None:
+    from concept_recomposition.evaluator import affine_equivalent
+
+    x = np.linspace(-2.0, 2.0, 100)
+    y = 3.5 - 2.0 * x
+    assert affine_equivalent(x, y)
+
+
+def test_affine_equivalence_rejects_different_shape() -> None:
+    from concept_recomposition.evaluator import affine_equivalent
+
+    x = np.linspace(-2.0, 2.0, 100)
+    y = x**2
+    assert not affine_equivalent(x, y)

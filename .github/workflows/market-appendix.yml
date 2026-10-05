@@ -6,6 +6,7 @@ on:
       - "src/concept_recomposition/market_appendix.py"
       - "src/concept_recomposition/search.py"
       - "src/concept_recomposition/grammar.py"
+      - "src/concept_recomposition/operators.py"
       - ".github/workflows/market-appendix.yml"
   workflow_dispatch:
 
@@ -24,3 +25,5 @@ jobs:
         with:
           name: market-appendix-results
           path: results/market_appendix.csv
+      - name: Check frozen market artifact
+        run: git diff --ignore-space-at-eol --exit-code -- results/market_appendix.csv

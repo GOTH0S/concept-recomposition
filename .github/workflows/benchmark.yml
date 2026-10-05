@@ -27,3 +27,5 @@ jobs:
             results/headline.csv
             results/lineage.json
             figures/*.svg
+      - name: Check frozen benchmark artifacts
+        run: git diff --ignore-space-at-eol --exit-code -- results/headline.csv results/lineage.json figures/*.svg

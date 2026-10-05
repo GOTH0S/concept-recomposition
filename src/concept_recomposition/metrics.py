@@ -24,22 +24,20 @@ def _target_lineages(
     for record in result.records:
         if (
             record.proposal > budget
-            or not record.exact_target
             or record.target_key is None
         ):
             continue
-        lineages.append(
-            (
-                record.target_key,
-                result.archive.lineage(record.concept_refs),
-            )
+        lineage = result.archive.lineage(record.concept_refs)
+        lineages.extend(
+            (target_key, lineage)
+            for target_key in record.matched_targets
         )
     return lineages
 
 
 def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
     records = [record for record in result.records if record.proposal <= budget]
-    exact = [record for record in records if record.exact_target]
+    matched = [record for record in records if record.target_key is not None]
     available = _available_concepts(result, budget)
     target_lineages = _target_lineages(result, budget)
     useful = (
@@ -71,7 +69,12 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
         if str(row["expanded_key"]) in result.target_subexpressions
     ]
 
-    distinct = len({record.target_key for record in exact})
+    matched_keys = {
+        target_key
+        for record in matched
+        for target_key in record.matched_targets
+    }
+    distinct = len(matched_keys)
     reached = (
         result.required_targets > 0
         and distinct >= result.required_targets
@@ -80,12 +83,16 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
     return {
         "reached_target": float(reached),
         "first_target": float(
-            min(record.proposal for record in exact)
-        ) if exact else float("nan"),
+            min(record.proposal for record in matched)
+        ) if matched else float("nan"),
         "first_success": float(
             max(
-                min(record.proposal for record in exact if record.target_key == key)
-                for key in {record.target_key for record in exact}
+                min(
+                    record.proposal
+                    for record in matched
+                    if key in record.matched_targets
+                )
+                for key in matched_keys
             )
         ) if reached else float("nan"),
         "distinct_targets": float(distinct),
@@ -106,7 +113,16 @@ def _prefix_metrics(result: SearchResult, budget: int) -> dict[str, float]:
             sum(int(row["useful_uses"]) for row in concepts)
         ),
         "max_target_depth": float(
-            max((record.expanded_depth for record in exact), default=0)
+            max((record.expanded_depth for record in matched), default=0)
+        ),
+        "max_target_compression": float(
+            max(
+                (
+                    record.expanded_size - record.local_size
+                    for record in matched
+                ),
+                default=0,
+            )
         ),
         "mean_positive_gain": float(
             np.mean(
@@ -138,12 +154,12 @@ def summarize(
     first = np.array([value["first_success"] for value in values], dtype=float)
 
     def mean(field: str) -> float:
-        return float(np.mean([value[field] for value in values]))
+        return round(float(np.mean([value[field] for value in values])), 12)
 
     return {
         "reach_rate": mean("reached_target"),
         "mean_first_success": (
-            float(np.nanmean(first))
+            round(float(np.nanmean(first)), 12)
             if np.isfinite(first).any()
             else float("nan")
         ),
@@ -157,6 +173,7 @@ def summarize(
         "mean_shared_target_concepts": mean("shared_target_concepts"),
         "mean_useful_reuses": mean("useful_reuses"),
         "mean_max_target_depth": mean("max_target_depth"),
+        "mean_max_target_compression": mean("max_target_compression"),
         "mean_positive_gain": mean("mean_positive_gain"),
         "mean_best_promotion": mean("best_promotion"),
         "mean_selected_heldout": mean("selected_heldout"),

@@ -84,7 +84,6 @@ def build_world(
         )
         required_targets = 2
     elif name == "context":
-        data["x5"] = data["x5"] + 1.0
         z = Expression.unary("mean", x2, 5)
         targets = (Expression.where(x5, z, x2),)
         required_targets = 1

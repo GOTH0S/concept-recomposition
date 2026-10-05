@@ -30,6 +30,7 @@ def main() -> None:
         "mean_reused_concepts",
         "mean_shared_target_concepts",
         "mean_max_target_depth",
+        "mean_max_target_compression",
         "mean_selected_heldout",
         "mean_selection_regret",
     )
