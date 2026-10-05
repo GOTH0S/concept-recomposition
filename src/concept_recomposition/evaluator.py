@@ -31,7 +31,7 @@ def _corr(left: np.ndarray, right: np.ndarray) -> float:
     scale = np.sqrt(np.dot(x, x) * np.dot(y, y))
     if scale < 1e-12:
         return 0.0
-    return float(abs(np.dot(x, y) / scale))
+    return round(float(abs(np.dot(x, y) / scale)), 12)
 
 
 def _best_corr(values: np.ndarray, outcomes: tuple[np.ndarray, ...]) -> float:
